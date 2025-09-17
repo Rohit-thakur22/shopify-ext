@@ -124,20 +124,24 @@ const DesingViewer = () => {
           const response = await fetch(imageDataUrl);
           const blob = await response.blob();
           addLogo(blob);
-          
+
           // Upload image to server immediately
           const form = new FormData();
           form.append("image", blob);
-           // Add logo to canvas
-          const res = await fetch("https://hqcustomapp.agileappdemo.com/api/image/upload-image", {
+          const res = await fetch("https://hqcustomapp.agileappdemo.com/api/images/upload-image", {
             method: "POST",
             body: form,
           });
-          const link = res.headers.get("X-Image-Link");
-          console.log("Received link:", link);
-          if (link) setFinalImageLink(link);
-          
-         
+
+          if (res.ok) {
+            const data = await res.json();
+            console.log("Received link:", data.link);
+            if (data.link) setFinalImageLink(data.link);
+          } else {
+            console.error("Upload failed:", res.status, res.statusText);
+          }
+
+
         } catch (error) {
           console.error("Error processing Shopify image upload:", error);
         }
@@ -431,8 +435,8 @@ const DesingViewer = () => {
                   key={color}
                   aria-label={`Color ${color}`}
                   className={`h-6 w-6 rounded-md border ${tintColor === color
-                      ? "ring-2 ring-offset-2 ring-blue-500"
-                      : ""
+                    ? "ring-2 ring-offset-2 ring-blue-500"
+                    : ""
                     }`}
                   style={{ backgroundColor: color }}
                   onClick={() => changeColor(color)}
