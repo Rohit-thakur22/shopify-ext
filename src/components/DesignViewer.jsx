@@ -75,8 +75,10 @@ const DesingViewer = () => {
   const logoImagesRef = useRef([]);
   const logoRequestIdRef = useRef(0);
 
-  const CANVAS_W = 140; // original canvas width
-  const CANVAS_H = 180; // original canvas height
+  const CANVAS_W = 280; // doubled for high DPI
+  const CANVAS_H = 360; // doubled for high DPI
+  const DISPLAY_W = 140; // display width
+  const DISPLAY_H = 180; // display height
 
   const COLOR_SWATCHES = [
     "#000000",
@@ -177,21 +179,23 @@ const DesingViewer = () => {
           backgroundColor: "transparent",
           selection: false,
           preserveObjectStacking: true,
-          enableRetinaScaling: true, // Enable retina scaling for crisp rendering
-          devicePixelRatio: window.devicePixelRatio || 1, // Use device pixel ratio
+          enableRetinaScaling: false, // We'll handle scaling manually
+          devicePixelRatio: 1, // We'll handle DPI manually
+          renderOnAddRemove: true,
+          skipTargetFind: true,
+          imageSmoothingEnabled: true,
         });
 
         fabricCanvasesRef.current[idx] = canvas;
 
         Image.fromURL(product.src, {
           crossOrigin: "anonymous",
-          // Ensure high quality image loading
-          enableRetinaScaling: true,
+          enableRetinaScaling: false, // We'll handle scaling manually
         }).then((img) => {
-          // fit to canvas with high quality scaling
+          // Calculate scale to fit canvas with some padding
           const scale = Math.min(
-            (CANVAS_W * 0.99) / img.width,
-            (CANVAS_H * 0.99) / img.height
+            (CANVAS_W * 0.95) / img.width,
+            (CANVAS_H * 0.95) / img.height
           );
 
           img.set({
@@ -206,6 +210,8 @@ const DesingViewer = () => {
             // High quality image rendering
             imageSmoothing: true,
             imageSmoothingQuality: "high",
+            // Ensure crisp rendering
+            objectCaching: false,
           });
 
           // apply initial tint while preserving shadows/highlights
@@ -221,7 +227,14 @@ const DesingViewer = () => {
 
           baseImagesRef.current[idx] = img;
           canvas.add(img);
-          canvas.renderAll();
+          // Force high quality render
+          canvas.requestRenderAll();
+          // Additional render to ensure quality
+          setTimeout(() => {
+            if (canvas && !canvas.isDestroyed) {
+              canvas.renderAll();
+            }
+          }, 50);
         });
       });
     });
@@ -244,7 +257,15 @@ const DesingViewer = () => {
       img.dirty = true;
       img.applyFilters();
       const canvas = fabricCanvasesRef.current[idx];
-      if (canvas) canvas.renderAll();
+      if (canvas) {
+        canvas.requestRenderAll();
+        // Additional render for quality
+        setTimeout(() => {
+          if (canvas && !canvas.isDestroyed) {
+            canvas.renderAll();
+          }
+        }, 10);
+      }
     });
   }, []);
 
@@ -265,8 +286,7 @@ const DesingViewer = () => {
 
     Image.fromURL(url, {
       crossOrigin: "anonymous",
-      // High quality image loading settings
-      enableRetinaScaling: true,
+      enableRetinaScaling: false, // We'll handle scaling manually
     }).then((logo) => {
       // Ignore if a newer upload has started since this request
       if (requestId !== logoRequestIdRef.current) {
@@ -295,6 +315,8 @@ const DesingViewer = () => {
         // High quality rendering settings
         imageSmoothing: true,
         imageSmoothingQuality: "high",
+        // Ensure crisp rendering
+        objectCaching: false,
         // Ensure pixel-perfect scaling
         scaleX: scale,
         scaleY: scale,
@@ -411,10 +433,14 @@ const DesingViewer = () => {
                   <div className="w-36 h-44 mx-auto transform transition-transform duration-300 ease-out group-hover:scale-110">
                     <canvas
                       ref={(el) => (canvasRefs.current[index] = el)}
+                      width={CANVAS_W}
+                      height={CANVAS_H}
                       style={{
                         display: "block",
+                        width: `${DISPLAY_W}px`,
+                        height: `${DISPLAY_H}px`,
                         // Ensure crisp pixel-perfect rendering
-                        imageRendering: "auto",
+                        imageRendering: "crisp-edges",
                       }}
                     />
                   </div>
