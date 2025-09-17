@@ -123,11 +123,13 @@ const DesingViewer = () => {
           // Convert data URL to blob
           const response = await fetch(imageDataUrl);
           const blob = await response.blob();
+          addLogo(blob);
           
           // Upload image to server immediately
           const form = new FormData();
           form.append("image", blob);
-          const res = await fetch("https://hqcustomapp.agileappdemo.com/api/images/remove-bg", {
+           // Add logo to canvas
+          const res = await fetch("https://hqcustomapp.agileappdemo.com/api/image/upload-image", {
             method: "POST",
             body: form,
           });
@@ -135,8 +137,7 @@ const DesingViewer = () => {
           console.log("Received link:", link);
           if (link) setFinalImageLink(link);
           
-          // Add logo to canvas
-          addLogo(blob);
+         
         } catch (error) {
           console.error("Error processing Shopify image upload:", error);
         }
