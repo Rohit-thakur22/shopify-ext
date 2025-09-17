@@ -101,7 +101,6 @@ const DesingViewer = () => {
   const tintColorRef = useRef("#6b7280");
   // const [isDragging, setIsDragging] = useState(false);
   const [finalImageLink, setFinalImageLink] = useState(null);
-  const [imageDimensions, setImageDimensions] = useState(null);
 
   useEffect(() => {
     tintColorRef.current = tintColor;
@@ -322,44 +321,12 @@ const DesingViewer = () => {
         );
       };
 
-      const uploadImageToServer = async (file) => {
-        try {
-          const form = new FormData();
-          form.append("image", file);
-          const res = await fetch("https://hqcustomapp.agileappdemo.com/api/images/remove-bg", {
-            method: "POST",
-            body: form,
-          });
-          const link = res.headers.get("X-Image-Link");
-          console.log("Received link:", link);
-          if (link) {
-            setFinalImageLink(link);
-          }
-        } catch (error) {
-          console.error("Error uploading image to server:", error);
-        }
-      };
-
       if (typeof fileOrUrl === "string") {
         addWithUrl(fileOrUrl);
         return;
       }
       const file = fileOrUrl;
       setCurrentImageBlob(file);
-      
-      // Capture image dimensions
-      const img = new Image();
-      img.onload = () => {
-        setImageDimensions({
-          width: img.naturalWidth,
-          height: img.naturalHeight
-        });
-      };
-      img.src = URL.createObjectURL(file);
-      
-      // Upload image to server when initially fetched from Shopify
-      uploadImageToServer(file);
-      
       const objectUrl = URL.createObjectURL(file);
       addWithUrl(objectUrl);
     },
@@ -379,7 +346,6 @@ const DesingViewer = () => {
       return null;
     });
     setCurrentImageBlob(null);
-    setImageDimensions(null);
     logoRequestIdRef.current += 1;
     fabricCanvasesRef.current.forEach((canvas, idx) => {
       if (!canvas) return;
@@ -599,16 +565,12 @@ const DesingViewer = () => {
                       Accept: "application/json",
                     },
                     body: JSON.stringify({
-                      id: 50138322829616, 
+                      id: 50138322829616, // fixed variant
                       quantity: 1,
                       properties: {
                         CustomImage:
                           "https://hqcustomapp.agileappdemo.com/" +
                           finalImageLink,
-                        ...(imageDimensions && {
-                          ImageWidth: imageDimensions.width.toString(),
-                          ImageHeight: imageDimensions.height.toString(),
-                        }),
                       },
                     }),
                   });
