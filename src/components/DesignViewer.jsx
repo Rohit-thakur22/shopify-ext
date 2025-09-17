@@ -116,18 +116,30 @@ const DesingViewer = () => {
 
   // Listen for Shopify image uploads
   useEffect(() => {
-    const handleShopifyImageUpload = (event) => {
+    const handleShopifyImageUpload = async (event) => {
       const imageDataUrl = event.detail;
       if (imageDataUrl) {
-        // Convert data URL to blob
-        fetch(imageDataUrl)
-          .then((res) => res.blob())
-          .then((blob) => {
-            addLogo(blob);
-          })
-          .catch((error) => {
-            console.error("Error converting data URL to blob:", error);
+        try {
+          // Convert data URL to blob
+          const response = await fetch(imageDataUrl);
+          const blob = await response.blob();
+          
+          // Upload image to server immediately
+          const form = new FormData();
+          form.append("image", blob);
+          const res = await fetch("https://hqcustomapp.agileappdemo.com/api/images/remove-bg", {
+            method: "POST",
+            body: form,
           });
+          const link = res.headers.get("X-Image-Link");
+          console.log("Received link:", link);
+          if (link) setFinalImageLink(link);
+          
+          // Add logo to canvas
+          addLogo(blob);
+        } catch (error) {
+          console.error("Error processing Shopify image upload:", error);
+        }
       }
     };
 
