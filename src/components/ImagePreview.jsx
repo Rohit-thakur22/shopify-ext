@@ -14,7 +14,7 @@ const ImagePreview = ({
   const [isHovering, setIsHovering] = useState(false);
   const [bgPos, setBgPos] = useState("center");
 
-  const ZOOM_SCALE = 1.5; // how much to zoom on hover
+  const ZOOM_SCALE = 1.2; // how much to zoom on hover
 
   const handleMouseMove = (e) => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -32,7 +32,7 @@ const ImagePreview = ({
       ? document.getElementById("cloth-editor-app")
       : null;
   return (
-    <div className="w-lg">
+    <div className="w-lg absolute top-[80px] right-[100px] z-[99999]">
       <div className="flex items-center justify-center gap-2 mb-2 select-none">
         <span className="text-sm text-gray-700">Hover to Zoom</span>
         <span className="text-sm text-blue-600 cursor-zoom-in">
@@ -60,12 +60,12 @@ const ImagePreview = ({
         {/* Main preview image (hover target) */}
         <div
           ref={containerRef}
-          className="w-full max-w-md mx-auto aspect-[16/9] bg-white border border-dashed border-gray-400 rounded-md overflow-hidden cursor-zoom-in"
+          className="w-full max-w-md mx-auto aspect-[16/9] bg-white border border-dashed border-gray-400 rounded-md overflow-hidden cursor-zoom-in !h-[200px] "
           style={{
             backgroundImage: `url(${imageUrl})`,
             backgroundRepeat: "no-repeat",
             backgroundSize: isHovering
-              ? `${ZOOM_SCALE * 100}% auto`
+              ? `${ZOOM_SCALE * 120}% auto`
               : "contain",
             backgroundPosition: isHovering ? bgPos : "center",
             transition:
@@ -101,9 +101,9 @@ const ImagePreview = ({
                   d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
                 ></path>
               </svg>
-              <span className="text-sm font-medium">
+              {/* <span className="text-sm font-medium">
                 {loadingRemoveBg ? "Removing background…" : "Enhancing image…"}
-              </span>
+              </span> */}
             </div>
           </div>
         )}

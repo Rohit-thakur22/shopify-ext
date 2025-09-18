@@ -1,4 +1,3 @@
-
 import React, {
   useCallback,
   useEffect,
@@ -128,10 +127,13 @@ const DesingViewer = () => {
           // Upload image to server immediately
           const form = new FormData();
           form.append("image", blob);
-          const res = await fetch("https://hqcustomapp.agileappdemo.com/api/images/upload-image", {
-            method: "POST",
-            body: form,
-          });
+          const res = await fetch(
+            "https://hqcustomapp.agileappdemo.com/api/images/upload-image",
+            {
+              method: "POST",
+              body: form,
+            }
+          );
 
           if (res.ok) {
             const data = await res.json();
@@ -140,8 +142,6 @@ const DesingViewer = () => {
           } else {
             console.error("Upload failed:", res.status, res.statusText);
           }
-
-
         } catch (error) {
           console.error("Error processing Shopify image upload:", error);
         }
@@ -434,10 +434,11 @@ const DesingViewer = () => {
                 <button
                   key={color}
                   aria-label={`Color ${color}`}
-                  className={`h-6 w-6 rounded-md border ${tintColor === color
-                    ? "ring-2 ring-offset-2 ring-blue-500"
-                    : ""
-                    }`}
+                  className={`h-6 w-6 rounded-md border ${
+                    tintColor === color
+                      ? "ring-2 ring-offset-2 ring-blue-500"
+                      : ""
+                  }`}
                   style={{ backgroundColor: color }}
                   onClick={() => changeColor(color)}
                 />
@@ -448,68 +449,19 @@ const DesingViewer = () => {
       </div>
 
       {/* Upload Section */}
-      <div className="w-max absolute top-[10px] right-0 z-[99999]">
+      <div className="w-max absolute top-[120px] right-[150px] z-[99999]">
         {showProgress && (
-          <div className="mt-4">
+          <div className="">
             <NinjaProgressBar />
           </div>
         )}
 
         {/* Image preview section */}
-        {previewUrl && (
+        {previewUrl && !showProgress && (
           <div className="flex justify-between">
             <ImagePreview
               imageUrl={previewUrl}
               onRemove={clearPreview}
-              // onRemoveBg={async () => {
-              //   if (!currentImageBlob || loadingRemoveBg) return;
-              //   try {
-              //     setLoadingRemoveBg(true);
-              //     const form = new FormData();
-              //     form.append("image", currentImageBlob);
-              //     const res = await fetch(
-              //       "http://tw48oocoss8808ckws8kws4s.62.72.57.193.sslip.io/api/images/remove-bg",
-              //       {
-              //         method: "POST",
-              //         body: form,
-              //       }
-              //     );
-              //     if (!res.ok) throw new Error("Request failed");
-              //     const blob = await res.blob();
-              //     setCurrentImageBlob(blob);
-              //     const nextUrl = URL.createObjectURL(blob);
-              //     addLogo(nextUrl);
-              //   } catch (err) {
-              //     console.error(err);
-              //   } finally {
-              //     setLoadingRemoveBg(false);
-              //   }
-              // }}
-
-              // onEnhance={async () => {
-              //   if (!currentImageBlob || loadingEnhance) return;
-              //   try {
-              //     setLoadingEnhance(true);
-              //     const form = new FormData();
-              //     form.append("image", currentImageBlob);
-              //     const res = await fetch(
-              //       "http://tw48oocoss8808ckws8kws4s.62.72.57.193.sslip.io/api/images/enhance",
-              //       {
-              //         method: "POST",
-              //         body: form,
-              //       }
-              //     );
-              //     if (!res.ok) throw new Error("Request failed");
-              //     const blob = await res.blob();
-              //     setCurrentImageBlob(blob);
-              //     const nextUrl = URL.createObjectURL(blob);
-              //     addLogo(nextUrl);
-              //   } catch (err) {
-              //     console.error(err);
-              //   } finally {
-              //     setLoadingEnhance(false);
-              //   }
-              // }}
               onRemoveBg={async () => {
                 if (!currentImageBlob || loadingRemoveBg) return;
                 try {
@@ -569,10 +521,19 @@ const DesingViewer = () => {
             />
           </div>
         )}
-        {previewUrl && (
-          <div className="mt-4">
+        {previewUrl && !showProgress && (
+          <div
+            className="mt-2"
+            style={{
+              position: "absolute",
+              top: "365px",
+              right: "150px",
+              width: "400px",
+              cursor:'pointer'
+            }}
+          >
             <button
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow w-full"
               onClick={async () => {
                 try {
                   const res = await fetch("/cart/add.js", {
