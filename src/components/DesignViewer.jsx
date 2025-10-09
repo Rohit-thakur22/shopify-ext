@@ -456,18 +456,37 @@ const DesingViewer = () => {
                 className={`group flex bg-white pt-3 flex-col items-center transform transition-all duration-200 ease-in-out hover:scale-150 z-[${"9".repeat(
                   index + 1
                 )}]`}
+                style={{
+                  // Ensure crisp scaling with hardware acceleration
+                  willChange: "transform",
+                  backfaceVisibility: "hidden",
+                  transform: "translateZ(0)",
+                  // Additional quality improvements for scaling
+                  imageRendering: "high-quality",
+                  imageRendering: "-webkit-optimize-contrast",
+                }}
               >
             {/* <h3 className="text-sm font-bold text-black text-nowrap">
                   {product.size}
                 </h3> */}
                 <div className="rounded-lg p-2 w-full max-w-xs aspect-square flex items-center justify-center">
-                  <div className="w-36 h-44 mx-auto transform transition-transform duration-300 ease-out group-hover:scale-100 bg-white">
+                  <div 
+                    className="w-36 h-44 mx-auto transform transition-transform duration-300 ease-out group-hover:scale-100 bg-white"
+                    style={{
+                      // CSS-only quality improvements for scaling
+                      filter: "contrast(1.1) saturate(1.05)",
+                      // Ensure crisp scaling
+                      imageRendering: "high-quality",
+                      imageRendering: "-webkit-optimize-contrast",
+                    }}
+                  >
                     <canvas
                       ref={(el) => (canvasRefs.current[index] = el)}
                       style={{
                         display: "block",
                         // Enhanced image rendering for better quality during scaling
-                      
+                        imageRendering: "high-quality",
+                        imageRendering: "-webkit-optimize-contrast", 
                         imageRendering: "crisp-edges",
                         // Ensure smooth scaling transitions
                         willChange: "transform",
