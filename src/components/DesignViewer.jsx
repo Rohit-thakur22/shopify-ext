@@ -30,12 +30,12 @@ const DesingViewer = () => {
     } else {
       // Local dev fallback (Vite public folder)
       return [
-        "/assets/hoodie.png",
-        "/assets/cap.png",
         "/assets/tshirt.png",
-        "/assets/shorts.png",
+        "/assets/hoodie.png",
         "/assets/polo.png",
+        "/assets/cap.png",
         "/assets/apron.png",
+        "/assets/shorts.png",
       ];
     }
   }, [container]);
@@ -79,7 +79,6 @@ const DesingViewer = () => {
 
   const COLOR_SWATCHES = [
     "#000000",
-    "#ffffff",
     "#e11d48",
     "#2563eb",
     "#10b981",
@@ -186,14 +185,25 @@ const DesingViewer = () => {
           preserveObjectStacking: true,
           enableRetinaScaling: true, // Enable retina scaling for crisp rendering
           devicePixelRatio: window.devicePixelRatio || 1, // Use device pixel ratio
+          // Enhanced quality settings for better scaling
+          imageSmoothing: true,
+          imageSmoothingQuality: "high",
+          renderOnAddRemove: true,
+          skipTargetFind: true,
         });
 
         fabricCanvasesRef.current[idx] = canvas;
 
         Image.fromURL(product.src, {
           crossOrigin: "anonymous",
-          // Ensure high quality image loading
+          // Ensure maximum quality image loading
           enableRetinaScaling: true,
+          // Load at maximum resolution for better scaling quality
+          scaleX: 1,
+          scaleY: 1,
+          // Force high quality loading
+          imageSmoothing: true,
+          imageSmoothingQuality: "high",
         }).then((img) => {
           // fit to canvas with high quality scaling
           const scale = Math.min(
@@ -210,9 +220,18 @@ const DesingViewer = () => {
             evented: false,
             scaleX: scale,
             scaleY: scale,
-            // High quality image rendering
+            // Enhanced high quality image rendering
             imageSmoothing: true,
             imageSmoothingQuality: "high",
+            // Additional quality settings for HD rendering
+            dirty: true,
+            cornerSize: 0,
+            transparentCorners: false,
+            // Force high quality rendering
+            renderOnAddRemove: true,
+            // Ensure crisp edges and high quality
+            strokeWidth: 0,
+            strokeDashArray: null,
           });
 
           // apply initial tint while preserving shadows/highlights
@@ -274,15 +293,21 @@ const DesingViewer = () => {
       crossOrigin: "anonymous",
       // High quality image loading settings
       enableRetinaScaling: true,
+      // Load at maximum resolution for better scaling quality
+      scaleX: 1,
+      scaleY: 1,
+      // Force high quality loading
+      imageSmoothing: true,
+      imageSmoothingQuality: "high",
     }).then((logo) => {
       // Ignore if a newer upload has started since this request
       if (requestId !== logoRequestIdRef.current) {
         return;
       }
 
-      // Calculate proper scaling for high quality
+      // Calculate proper scaling for high quality - increased logo size for better visibility
       const hoodiePixelWidth = baseImg.getScaledWidth();
-      const targetWidth = hoodiePixelWidth * 0.25; // 25% of garment width
+      const targetWidth = hoodiePixelWidth * 0.4; // Increased to 40% of garment width for better quality
       const scale = targetWidth / logo.width;
 
       // Offset: shift a bit right on the last product only
@@ -299,25 +324,44 @@ const DesingViewer = () => {
         top: baseImg.top + offsetY,
         selectable: false,
         evented: false,
-        // High quality rendering settings
+        // Enhanced high quality rendering settings
         imageSmoothing: true,
         imageSmoothingQuality: "high",
-        // Ensure pixel-perfect scaling
+        // Ensure pixel-perfect scaling with better quality
         scaleX: scale,
         scaleY: scale,
+        // Additional quality settings for HD rendering
+        dirty: true,
+        cornerSize: 0,
+        transparentCorners: false,
+        // Force high quality rendering
+        renderOnAddRemove: true,
+        // Ensure crisp edges and high quality
+        strokeWidth: 0,
+        strokeDashArray: null,
       });
 
       canvas.add(logo);
       logo.bringToFront();
       logoImagesRef.current[idx] = logo;
 
-      // Force high quality render
+      // Force high quality render with multiple passes for crisp results
+      canvas.requestRenderAll();
+      
+      // Apply filters and render again for maximum quality
+      logo.applyFilters();
       canvas.requestRenderAll();
 
-      // Additional render call to ensure quality
+      // Additional render calls to ensure HD quality
       setTimeout(() => {
         if (canvas && !canvas.isDestroyed) {
           canvas.renderAll();
+          // Force another render for maximum crispness
+          setTimeout(() => {
+            if (canvas && !canvas.isDestroyed) {
+              canvas.renderAll();
+            }
+          }, 25);
         }
       }, 50);
     });
@@ -390,7 +434,7 @@ const DesingViewer = () => {
     <div className="flex justify-between gap-4">
       {/* Design List */}
       <div className="w-full">
-        <div className="max-w-2xl p-3 bg-gray-100 h-max">
+        <div className="max-w-2xl p-3 bg-white h-max">
           <div className="text-start space-y-2">
             <h1 className="text-md font-bold text-black">Size Guide</h1>
             <p className="text-xs text-gray-600">
@@ -409,21 +453,27 @@ const DesingViewer = () => {
             {products.map((product, index) => (
               <div
                 key={index}
-                className={`group flex bg-gray-100 pt-3 flex-col items-center transform transition-all duration-200 ease-in-out hover:scale-150 z-[${"9".repeat(
+                className={`group flex bg-white pt-3 flex-col items-center transform transition-all duration-200 ease-in-out hover:scale-150 z-[${"9".repeat(
                   index + 1
                 )}]`}
               >
-                <h3 className="text-sm font-bold text-black text-nowrap">
+            {/* <h3 className="text-sm font-bold text-black text-nowrap">
                   {product.size}
-                </h3>
+                </h3> */}
                 <div className="rounded-lg p-2 w-full max-w-xs aspect-square flex items-center justify-center">
-                  <div className="w-36 h-44 mx-auto transform transition-transform duration-300 ease-out group-hover:scale-110">
+                  <div className="w-36 h-44 mx-auto transform transition-transform duration-300 ease-out group-hover:scale-100 bg-white">
                     <canvas
                       ref={(el) => (canvasRefs.current[index] = el)}
                       style={{
                         display: "block",
-                        // Ensure crisp pixel-perfect rendering
-                        imageRendering: "auto",
+                        // Enhanced image rendering for better quality during scaling
+                      
+                        imageRendering: "crisp-edges",
+                        // Ensure smooth scaling transitions
+                        willChange: "transform",
+                        backfaceVisibility: "hidden",
+                        // Force hardware acceleration for smoother scaling
+                        transform: "translateZ(0)",
                       }}
                     />
                   </div>
