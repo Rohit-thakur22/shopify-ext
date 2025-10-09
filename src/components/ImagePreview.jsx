@@ -32,7 +32,7 @@ const ImagePreview = ({
       ? document.getElementById("cloth-editor-app")
       : null;
   return (
-    <div className="w-lg absolute top-[80px] right-[100px] z-[99999]">
+    <div className="w-[90%] md:w-lg absolute top-[0px] lg:-top-[58px] right-[20px] xl:right-[95px] z-[99999]">
       <div className="flex items-center justify-center gap-2 mb-2 select-none">
         <span className="text-sm text-gray-700">Hover to Zoom</span>
         <span className="text-sm text-blue-600 cursor-zoom-in">
@@ -60,7 +60,7 @@ const ImagePreview = ({
         {/* Main preview image (hover target) */}
         <div
           ref={containerRef}
-          className="w-full max-w-md mx-auto aspect-[16/9] bg-white border border-dashed border-gray-400 rounded-md overflow-hidden cursor-zoom-in !h-[200px] "
+          className="w-full max-w-md mx-auto aspect-[16/9] bg-white border border-dashed border-gray-400 rounded-md overflow-hidden cursor-zoom-in !h-[200px] md:!h-[300px] "
           style={{
             backgroundImage: `url(${imageUrl})`,
             backgroundRepeat: "no-repeat",

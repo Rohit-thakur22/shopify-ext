@@ -139,6 +139,13 @@ const DesingViewer = () => {
             const data = await res.json();
             console.log("Received link:", data.link);
             if (data.link) setFinalImageLink(data.link);
+            window.dispatchEvent(
+              new CustomEvent("CustomImageReady", {
+                detail: {
+                  imageUrl: "https://hqcustomapp.agileappdemo.com/" + data.link,
+                },
+              })
+            );
           } else {
             console.error("Upload failed:", res.status, res.statusText);
           }
@@ -375,6 +382,8 @@ const DesingViewer = () => {
       logoImagesRef.current[idx] = null;
       canvas.requestRenderAll();
     });
+    // ✅ Add window reload at the end (after cleanup)
+  window.location.reload(); // full page reload
   }, []);
 
   return (
@@ -449,13 +458,12 @@ const DesingViewer = () => {
       </div>
 
       {/* Upload Section */}
-      <div className="w-max absolute top-[120px] right-[150px] z-[99999]">
-        {showProgress && (
+      <div className="w-[90%] lg:w-max absolute top-[1175px] sm:top-[1110px] lg:top-[390px] right-[20px] sm:right-[0px] z-[99999]">
+        {/* {showProgress && (
           <div className="">
             <NinjaProgressBar />
           </div>
-        )}
-
+        )} */}
         {/* Image preview section */}
         {previewUrl && !showProgress && (
           <div className="flex justify-between">
@@ -478,7 +486,14 @@ const DesingViewer = () => {
                   const link = await res.headers.get("X-Image-Link");
                   console.log("Received link:", link);
                   if (link) setFinalImageLink(link);
-
+                  window.dispatchEvent(
+                    new CustomEvent("CustomImageReady", {
+                      detail: {
+                        imageUrl: "https://hqcustomapp.agileappdemo.com/" + link,
+                      },
+                    })
+                  );
+                  
                   const blob = await res.blob();
                   setCurrentImageBlob(blob);
                   const nextUrl = URL.createObjectURL(blob);
@@ -505,7 +520,13 @@ const DesingViewer = () => {
                   const link = await res.headers.get("X-AutoEnhance-Link");
                   console.log("Received enhance link:", link);
                   if (link) setFinalImageLink(link);
-
+                  window.dispatchEvent(
+                    new CustomEvent("CustomImageReady", {
+                      detail: {
+                        imageUrl: "https://hqcustomapp.agileappdemo.com/" + link,
+                      },
+                    })
+                  );                  
                   const blob = await res.blob();
                   setCurrentImageBlob(blob);
                   const nextUrl = URL.createObjectURL(blob);
@@ -521,7 +542,7 @@ const DesingViewer = () => {
             />
           </div>
         )}
-        {previewUrl && !showProgress && (
+        {/* {previewUrl && !showProgress && (
           <div
             className="mt-2"
             style={{
@@ -543,7 +564,7 @@ const DesingViewer = () => {
                       Accept: "application/json",
                     },
                     body: JSON.stringify({
-                      id: 50138322829616, // fixed variant
+                      id: 50138322829616,
                       quantity: 1,
                       properties: {
                         CustomImage:
@@ -564,7 +585,7 @@ const DesingViewer = () => {
               Add to Cart
             </button>
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );
