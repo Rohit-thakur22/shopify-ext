@@ -353,7 +353,7 @@ const DesingViewer = () => {
     [placeOrReplaceLogoOnCanvas, products]
   );
 
-  // Listen for Shopify image uploads
+  // Listen for Shopify image uploads (must be after addLogo is defined)
   useEffect(() => {
     const handleShopifyImageUpload = async (event) => {
       const imageDataUrl = event.detail;
