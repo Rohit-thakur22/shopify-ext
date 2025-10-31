@@ -112,60 +112,6 @@ const DesingViewer = () => {
     return () => clearTimeout(id);
   }, [previewUrl]);
 
-  // Listen for Shopify image uploads
-  useEffect(() => {
-    const handleShopifyImageUpload = async (event) => {
-      const imageDataUrl = event.detail;
-      if (imageDataUrl) {
-        try {
-          // Convert data URL to blob
-          const response = await fetch(imageDataUrl);
-          const blob = await response.blob();
-          addLogo(blob);
-
-          // Upload image to server immediately
-          const form = new FormData();
-          form.append("image", blob);
-          const res = await fetch(
-            "https://hqcustomapp.agileappdemo.com/api/images/upload-image",
-            {
-              method: "POST",
-              body: form,
-            }
-          );
-
-          if (res.ok) {
-            const data = await res.json();
-            console.log("Received link:", data.link);
-            if (data.link) setFinalImageLink(data.link);
-            window.dispatchEvent(
-              new CustomEvent("CustomImageReady", {
-                detail: {
-                  imageUrl: "https://hqcustomapp.agileappdemo.com/" + data.link,
-                },
-              })
-            );
-          } else {
-            console.error("Upload failed:", res.status, res.statusText);
-          }
-        } catch (error) {
-          console.error("Error processing Shopify image upload:", error);
-        }
-      }
-    };
-
-    // Add event listener for the custom event from Shopify
-    window.addEventListener("shopifyImageUploaded", handleShopifyImageUpload);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener(
-        "shopifyImageUploaded",
-        handleShopifyImageUpload
-      );
-    };
-  }, []);
-
   useEffect(() => {
     fabricCanvasesRef.current = [];
     baseImagesRef.current = [];
@@ -407,6 +353,67 @@ const DesingViewer = () => {
     [placeOrReplaceLogoOnCanvas, products]
   );
 
+  // Listen for Shopify image uploads
+  useEffect(() => {
+    const handleShopifyImageUpload = async (event) => {
+      const imageDataUrl = event.detail;
+      if (imageDataUrl) {
+        try {
+          console.log("DesignViewer: Received shopifyImageUploaded event", imageDataUrl);
+          // Convert data URL to blob
+          const response = await fetch(imageDataUrl);
+          const blob = await response.blob();
+          
+          // Set the blob and create URL
+          setCurrentImageBlob(blob);
+          const objectUrl = URL.createObjectURL(blob);
+          
+          // Add logo to canvases using the URL (this will also set previewUrl and dispatch event)
+          addLogo(objectUrl);
+
+          // Upload image to server immediately
+          const form = new FormData();
+          form.append("image", blob);
+          const res = await fetch(
+            "https://hqcustomapp.agileappdemo.com/api/images/upload-image",
+            {
+              method: "POST",
+              body: form,
+            }
+          );
+
+          if (res.ok) {
+            const data = await res.json();
+            console.log("Received link:", data.link);
+            if (data.link) setFinalImageLink(data.link);
+            window.dispatchEvent(
+              new CustomEvent("CustomImageReady", {
+                detail: {
+                  imageUrl: "https://hqcustomapp.agileappdemo.com/" + data.link,
+                },
+              })
+            );
+          } else {
+            console.error("Upload failed:", res.status, res.statusText);
+          }
+        } catch (error) {
+          console.error("Error processing Shopify image upload:", error);
+        }
+      }
+    };
+
+    // Add event listener for the custom event from Shopify
+    window.addEventListener("shopifyImageUploaded", handleShopifyImageUpload);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener(
+        "shopifyImageUploaded",
+        handleShopifyImageUpload
+      );
+    };
+  }, [addLogo]);
+
   const clearPreview = useCallback(() => {
     setPreviewUrl((prev) => {
       if (prev && prev.startsWith("blob:")) {
@@ -462,15 +469,15 @@ const DesingViewer = () => {
                 className={`group flex bg-white pt-3 flex-col items-center transform transition-all duration-200 ease-in-out hover:scale-150 z-[${"9".repeat(
                   index + 1
                 )}]`}
-                style={{
-                  // Ensure crisp scaling with hardware acceleration
-                  willChange: "transform",
-                  backfaceVisibility: "hidden",
-                  transform: "translateZ(0)",
-                  // Additional quality improvements for scaling
-                  imageRendering: "high-quality",
-                  imageRendering: "-webkit-optimize-contrast",
-                }}
+                  style={{
+                    // Ensure crisp scaling with hardware acceleration
+                    willChange: "transform",
+                    backfaceVisibility: "hidden",
+                    transform: "translateZ(0)",
+                    // Additional quality improvements for scaling
+                    imageRendering: "crisp-edges",
+                    WebkitImageRendering: "crisp-edges",
+                  }}
               >
             {/* <h3 className="text-sm font-bold text-black text-nowrap">
                   {product.size}
@@ -482,18 +489,17 @@ const DesingViewer = () => {
                       // CSS-only quality improvements for scaling
                       filter: "contrast(1.1) saturate(1.05)",
                       // Ensure crisp scaling
-                      imageRendering: "high-quality",
-                      imageRendering: "-webkit-optimize-contrast",
+                      imageRendering: "crisp-edges",
+                      WebkitImageRendering: "crisp-edges",
                     }}
                   >
                     <canvas
                       ref={(el) => (canvasRefs.current[index] = el)}
-                      style={{
-                        display: "block",
-                        // Enhanced image rendering for better quality during scaling
-                        imageRendering: "high-quality",
-                        imageRendering: "-webkit-optimize-contrast", 
-                        imageRendering: "crisp-edges",
+                    style={{
+                      display: "block",
+                      // Enhanced image rendering for better quality during scaling
+                      imageRendering: "crisp-edges",
+                      WebkitImageRendering: "crisp-edges",
                         // Ensure smooth scaling transitions
                         willChange: "transform",
                         backfaceVisibility: "hidden",
