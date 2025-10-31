@@ -14,22 +14,27 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
       : null;
 
   // Get t-shirt image source based on view type
-  const getTshirtSource = useCallback((view) => {
-    if (container?.dataset?.tshirt) {
-      // If running in Shopify with dataset, use the provided t-shirt
-      // For different views, we'd need dataset.backTshirt, dataset.sideTshirt, etc.
-      // For now, use the same t-shirt for all views when in Shopify
-      return container.dataset.tshirt;
-    } else {
-      // Local dev - use appropriate view images
-      const viewMap = {
-        front: "/assets/front-shirt.png",
-        back: "/assets/back-shirt.png",
-        side: "/assets/left-side-shirt.png",
-      };
-      return viewMap[view] || "/assets/tshirt.png";
-    }
-  }, [container]);
+  const getTshirtSource = useCallback(
+    (view) => {
+      if (container?.dataset?.tshirt) {
+        const viewMap = {
+          front: container.dataset.front,
+          back: container.dataset.back,
+          side: container.dataset.side,
+        };
+        return viewMap[view];
+      } else {
+        // Local dev - use appropriate view images
+        const viewMap = {
+          front: "/assets/front-shirt.png",
+          back: "/assets/back-shirt.png",
+          side: "/assets/left-side-shirt.png",
+        };
+        return viewMap[view] || "/assets/tshirt.png";
+      }
+    },
+    [container]
+  );
 
   const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
   const [selectedPlacement, setSelectedPlacement] = useState("custom");
@@ -44,8 +49,8 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
   const logoImagesRef = useRef([]);
   const scrollContainerRef = useRef(null);
 
-  const CANVAS_W = 180;
-  const CANVAS_H = 220;
+  const CANVAS_W = 130;
+  const CANVAS_H = 150;
 
   // Placement configurations
   const placements = useMemo(
@@ -115,14 +120,20 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
     // Listen for image URL from DesignViewer or other sources
     const handleImageReady = (event) => {
       if (event.detail?.imageUrl) {
-        console.log("DesignPlacementSlider: Received CustomImageReady event", event.detail.imageUrl);
+        console.log(
+          "DesignPlacementSlider: Received CustomImageReady event",
+          event.detail.imageUrl
+        );
         setUploadedImageUrl(event.detail.imageUrl);
       }
     };
 
     const handleDesignImageUploaded = (event) => {
       if (event.detail?.imageUrl) {
-        console.log("DesignPlacementSlider: Received designImageUploaded event", event.detail.imageUrl);
+        console.log(
+          "DesignPlacementSlider: Received designImageUploaded event",
+          event.detail.imageUrl
+        );
         setUploadedImageUrl(event.detail.imageUrl);
       }
     };
@@ -137,7 +148,10 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
         handleShopifyImageUpload
       );
       window.removeEventListener("CustomImageReady", handleImageReady);
-      window.removeEventListener("designImageUploaded", handleDesignImageUploaded);
+      window.removeEventListener(
+        "designImageUploaded",
+        handleDesignImageUploaded
+      );
     };
   }, []);
 
@@ -146,7 +160,7 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
     if (!scrollContainerRef.current) return;
     const container = scrollContainerRef.current;
     const { scrollLeft, scrollWidth, clientWidth } = container;
-    
+
     setShowLeftArrow(scrollLeft > 0);
     setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10); // 10px threshold
   }, []);
@@ -161,7 +175,7 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
 
     // Listen to scroll events
     container.addEventListener("scroll", updateArrowVisibility);
-    
+
     // Also check on resize
     const handleResize = () => {
       setTimeout(updateArrowVisibility, 100);
@@ -228,7 +242,6 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
             dirty: true,
           });
 
-         
           img.applyFilters();
 
           baseImagesRef.current[idx] = img;
@@ -243,7 +256,7 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
           }
         });
       });
-      
+
       // Update arrow visibility after canvases are initialized
       setTimeout(() => {
         updateArrowVisibility();
@@ -263,7 +276,10 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
   // Update logo when image URL changes
   useEffect(() => {
     // Cleanup previous blob URL if it exists
-    if (uploadedImageUrlRef.current && uploadedImageUrlRef.current.startsWith("blob:")) {
+    if (
+      uploadedImageUrlRef.current &&
+      uploadedImageUrlRef.current.startsWith("blob:")
+    ) {
       try {
         URL.revokeObjectURL(uploadedImageUrlRef.current);
       } catch (err) {
@@ -283,7 +299,7 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
           }
         });
       };
-      
+
       // Small delay to ensure canvases are fully initialized
       setTimeout(placeLogos, 100);
     } else {
@@ -308,7 +324,10 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (uploadedImageUrlRef.current && uploadedImageUrlRef.current.startsWith("blob:")) {
+      if (
+        uploadedImageUrlRef.current &&
+        uploadedImageUrlRef.current.startsWith("blob:")
+      ) {
         try {
           URL.revokeObjectURL(uploadedImageUrlRef.current);
         } catch (err) {
@@ -318,68 +337,71 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
     };
   }, []);
 
-  const placeLogoOnCanvas = useCallback(
-    (idx, imageUrl, placement) => {
-      const canvas = fabricCanvasesRef.current[idx];
-      const baseImg = baseImagesRef.current[idx];
-      if (!canvas || !baseImg || !imageUrl) {
-        console.warn(`DesignPlacementSlider: Cannot place logo - canvas: ${!!canvas}, baseImg: ${!!baseImg}, imageUrl: ${!!imageUrl}, placement: ${placement?.id}`);
-        return;
+  const placeLogoOnCanvas = useCallback((idx, imageUrl, placement) => {
+    const canvas = fabricCanvasesRef.current[idx];
+    const baseImg = baseImagesRef.current[idx];
+    if (!canvas || !baseImg || !imageUrl) {
+      console.warn(
+        `DesignPlacementSlider: Cannot place logo - canvas: ${!!canvas}, baseImg: ${!!baseImg}, imageUrl: ${!!imageUrl}, placement: ${
+          placement?.id
+        }`
+      );
+      return;
+    }
+
+    // Remove existing logo
+    const objects = canvas.getObjects();
+    objects.forEach((obj) => {
+      if (obj !== baseImg) {
+        canvas.remove(obj);
       }
+    });
+    logoImagesRef.current[idx] = null;
+    canvas.requestRenderAll();
 
-      // Remove existing logo
-      const objects = canvas.getObjects();
-      objects.forEach((obj) => {
-        if (obj !== baseImg) {
-          canvas.remove(obj);
-        }
-      });
-      logoImagesRef.current[idx] = null;
-      canvas.requestRenderAll();
+    Image.fromURL(imageUrl, {
+      crossOrigin: "anonymous",
+      enableRetinaScaling: true,
+      imageSmoothing: true,
+      imageSmoothingQuality: "high",
+    }).then((logo) => {
+      // Calculate position and scale
+      const garmentWidth = Math.abs(baseImg.getScaledWidth());
+      const garmentHeight = Math.abs(baseImg.getScaledHeight());
+      const targetWidth = garmentWidth * placement.scale;
+      const scale = targetWidth / logo.width;
 
-      Image.fromURL(imageUrl, {
-        crossOrigin: "anonymous",
-        enableRetinaScaling: true,
+      // Calculate position based on placement config (relative to garment size)
+      const offsetX = baseImg.left + placement.position.x * garmentWidth;
+      const offsetY = baseImg.top + placement.position.y * garmentHeight;
+
+      logo.set({
+        originX: "center",
+        originY: "center",
+        left: offsetX,
+        top: offsetY,
+        selectable: false,
+        evented: false,
         imageSmoothing: true,
         imageSmoothingQuality: "high",
-      }).then((logo) => {
-        // Calculate position and scale
-        const garmentWidth = Math.abs(baseImg.getScaledWidth());
-        const garmentHeight = Math.abs(baseImg.getScaledHeight());
-        const targetWidth = garmentWidth * placement.scale;
-        const scale = targetWidth / logo.width;
-
-        // Calculate position based on placement config (relative to garment size)
-        const offsetX = baseImg.left + placement.position.x * garmentWidth;
-        const offsetY = baseImg.top + placement.position.y * garmentHeight;
-
-        logo.set({
-          originX: "center",
-          originY: "center",
-          left: offsetX,
-          top: offsetY,
-          selectable: false,
-          evented: false,
-          imageSmoothing: true,
-          imageSmoothingQuality: "high",
-          scaleX: scale,
-          scaleY: scale,
-          dirty: true,
-        });
-
-        canvas.add(logo);
-        logo.bringToFront();
-        logoImagesRef.current[idx] = logo;
-        canvas.requestRenderAll();
+        scaleX: scale,
+        scaleY: scale,
+        dirty: true,
       });
-    },
-    []
-  );
+
+      canvas.add(logo);
+      logo.bringToFront();
+      logoImagesRef.current[idx] = logo;
+      canvas.requestRenderAll();
+    });
+  }, []);
 
   return (
-    <div className="w-[700px] bg-white p-4">
+    <div className="w-[500px] bg-white p-4">
       <div className="text-start space-y-2 mb-4">
-        <h2 className="text-md font-bold text-black">Step 2: Set Design Size</h2>
+        <h2 className="text-md font-bold text-black">
+          Step 2: Set Design Size
+        </h2>
       </div>
 
       <div className="relative">
@@ -396,9 +418,7 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
             <div
               key={placement.id}
               className={`flex-shrink-0 cursor-pointer transition-all duration-200 ${
-                selectedPlacement === placement.id
-                  ? ""
-                  : ""
+                selectedPlacement === placement.id ? "" : ""
               }`}
               onClick={() => setSelectedPlacement(placement.id)}
             >
@@ -408,7 +428,6 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
                     ? "border-blue-600 shadow-lg"
                     : "border-gray-300"
                 } transition-all duration-200`}
-               
               >
                 {/* Checkmark icon for selected */}
                 {selectedPlacement === placement.id && (
@@ -545,4 +564,3 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
 };
 
 export default DesignPlacementSlider;
-
