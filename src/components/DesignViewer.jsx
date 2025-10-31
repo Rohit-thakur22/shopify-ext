@@ -384,6 +384,12 @@ const DesingViewer = () => {
           }
           return url;
         });
+        // Dispatch event for DesignPlacementSlider
+        window.dispatchEvent(
+          new CustomEvent("designImageUploaded", {
+            detail: { imageUrl: url },
+          })
+        );
         products.forEach((_, idx) =>
           placeOrReplaceLogoOnCanvas(idx, url, requestId)
         );
