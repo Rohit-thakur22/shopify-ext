@@ -134,7 +134,38 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
           "DesignPlacementSlider: Received designImageUploaded event",
           event.detail.imageUrl
         );
-        setUploadedImageUrl(event.detail.imageUrl);
+        const imageUrl = event.detail.imageUrl;
+        setUploadedImageUrl(imageUrl);
+        
+        // Force update logos immediately and with retries
+        const placeLogosWithRetry = (attempt = 0) => {
+          const maxAttempts = 15;
+          
+          if (attempt < maxAttempts) {
+            const allReady = placements.every((_, idx) => {
+              const canvas = fabricCanvasesRef.current[idx];
+              const baseImg = baseImagesRef.current[idx];
+              return canvas && baseImg;
+            });
+            
+            if (allReady) {
+              // All canvases ready, place logos
+              placements.forEach((placement, idx) => {
+                const canvas = fabricCanvasesRef.current[idx];
+                const baseImg = baseImagesRef.current[idx];
+                if (canvas && baseImg) {
+                  placeLogoOnCanvas(idx, imageUrl, placement);
+                }
+              });
+            } else {
+              // Not all ready, retry after delay
+              setTimeout(() => placeLogosWithRetry(attempt + 1), 100);
+            }
+          }
+        };
+        
+        // Start retry loop
+        setTimeout(() => placeLogosWithRetry(0), 50);
       }
     };
 
@@ -254,6 +285,17 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
               placeLogoOnCanvas(idx, uploadedImageUrl, placement);
             }, 50);
           }
+          
+          // Check if image was uploaded after canvas initialization
+          // This handles the case where event arrives before canvas is ready
+          const checkForPendingImage = () => {
+            if (uploadedImageUrl && !logoImagesRef.current[idx]) {
+              setTimeout(() => {
+                placeLogoOnCanvas(idx, uploadedImageUrl, placement);
+              }, 100);
+            }
+          };
+          setTimeout(checkForPendingImage, 200);
         });
       });
 
@@ -289,19 +331,35 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
     uploadedImageUrlRef.current = uploadedImageUrl;
 
     if (uploadedImageUrl) {
-      // Ensure canvases are ready before placing logos
-      const placeLogos = () => {
-        placements.forEach((placement, idx) => {
-          const canvas = fabricCanvasesRef.current[idx];
-          const baseImg = baseImagesRef.current[idx];
-          if (canvas && baseImg) {
-            placeLogoOnCanvas(idx, uploadedImageUrl, placement);
+      // Ensure canvases are ready before placing logos with retry mechanism
+      const placeLogosWithRetry = (attempt = 0) => {
+        const maxAttempts = 15;
+        
+        if (attempt < maxAttempts) {
+          const allReady = placements.every((_, idx) => {
+            const canvas = fabricCanvasesRef.current[idx];
+            const baseImg = baseImagesRef.current[idx];
+            return canvas && baseImg;
+          });
+          
+          if (allReady) {
+            // All canvases ready, place logos
+            placements.forEach((placement, idx) => {
+              const canvas = fabricCanvasesRef.current[idx];
+              const baseImg = baseImagesRef.current[idx];
+              if (canvas && baseImg) {
+                placeLogoOnCanvas(idx, uploadedImageUrl, placement);
+              }
+            });
+          } else {
+            // Not all ready, retry after delay
+            setTimeout(() => placeLogosWithRetry(attempt + 1), 100);
           }
-        });
+        }
       };
 
-      // Small delay to ensure canvases are fully initialized
-      setTimeout(placeLogos, 100);
+      // Start retry loop immediately
+      setTimeout(() => placeLogosWithRetry(0), 50);
     } else {
       // Remove logos if image is cleared
       placements.forEach((_, idx) => {
