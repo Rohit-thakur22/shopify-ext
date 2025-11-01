@@ -675,7 +675,7 @@ const DesignPlacementSlider = ({
             )}
 
             {/* Right scroll arrow */}
-            {showRightArrow && (
+          
               <div
                 className="absolute right-0 top-1/2 -translate-y-1/2 cursor-pointer z-10"
                 style={{
@@ -709,7 +709,7 @@ const DesignPlacementSlider = ({
                   </svg>
                 </div>
               </div>
-            )}
+          
           </>
         )}
       </div>
