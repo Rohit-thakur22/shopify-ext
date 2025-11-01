@@ -32,7 +32,7 @@ const ImagePreview = ({
       ? document.getElementById("cloth-editor-app")
       : null;
   return (
-    <div className="w-[90%] md:w-lg absolute top-[0px] lg:-top-[58px] right-[20px] xl:right-[95px] z-[99999]">
+    <div className="ImagePreview w-[90%] md:w-lg absolute top-[0px] lg:-top-[58px] right-[20px] xl:right-[95px] z-[99999]">
       <div className="flex items-center justify-center gap-2 mb-2 select-none">
         <span className="text-sm text-gray-700">Hover to Zoom</span>
         <span className="text-sm text-blue-600 cursor-zoom-in">
@@ -124,7 +124,12 @@ const ImagePreview = ({
         </div>
 
         {/* Action buttons */}
-        <div className="flex flex-wrap items-start h-max gap-2 justify-center">
+        <div
+          className="flex flex-wrap items-start h-max gap-2 justify-center "
+          style={{
+            marginLeft: 10,
+          }}
+        >
           <button
             type="button"
             className={`w-[120px] cursor-pointer flex justify-center text-center group items-center gap-2 px-2 py-2 rounded-lg text-sm font-semibold shadow-sm border transition-all duration-150 ${
@@ -134,7 +139,11 @@ const ImagePreview = ({
             }`}
             onClick={onRemoveBg}
             disabled={loadingRemoveBg || !imageUrl}
-            style={{ borderRadius: 10 }}
+            style={{
+              borderRadius: 10,
+              background: "linear-gradient(90deg, #6a2fc1, #2e89d0)",
+              color: "white",
+            }}
           >
             {/* {loadingRemoveBg ? (
               <svg
@@ -172,15 +181,18 @@ const ImagePreview = ({
 
           <button
             type="button"
-            className={`w-[120px] cursor-pointer flex justify-centertext-center group items-center gap-2 px-2 py-2 rounded-lg text-sm font-semibold shadow-sm border transition-all duration-150 ${
+            className={`w-[120px] cursor-pointer flex justify-center text-center group items-center gap-2 px-2 py-2 rounded-lg text-sm font-semibold shadow-sm border transition-all duration-150 ${
               loadingEnhance
                 ? "bg-gray-100 text-gray-500 cursor-wait border-gray-200"
                 : "bg-white text-gray-900 hover:bg-gray-50 border-gray-300"
             }`}
             onClick={onEnhance}
             disabled={loadingEnhance || !imageUrl}
-            style={{ borderRadius: 10 }}
-
+            style={{
+              borderRadius: 10,
+              background: "linear-gradient(90deg, #6a2fc1, #2e89d0)",
+              color: "white",
+            }}
           >
             {/* {loadingEnhance ? (
               <svg
@@ -213,7 +225,7 @@ const ImagePreview = ({
                 <path d="M12 2l2.39 4.84L20 8l-4 3.9.94 5.48L12 15.77 7.06 17.38 8 11.9 4 8l5.61-1.16L12 2z" />
               </svg>
             )} */}
-            <span>{loadingEnhance ? "Enhancing…" : "High Resolution"}</span>
+            <span>{loadingEnhance ? "Enhancing…" : "Enhance"}</span>
           </button>
         </div>
       </div>

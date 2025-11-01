@@ -11,6 +11,7 @@ export default {
       md: '760px',
       lg: '968px',
       xl: '1280px',
+      xxl:'1400px',
     },
   },
   plugins: [],
