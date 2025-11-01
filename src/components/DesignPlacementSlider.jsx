@@ -101,33 +101,10 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
     []
   );
 
-  // Listen for Shopify image uploads
+  // Listen for image uploads from DesignViewer or other sources
   useEffect(() => {
-    const handleShopifyImageUpload = async (event) => {
-      const imageDataUrl = event.detail;
-      if (imageDataUrl) {
-        try {
-          const response = await fetch(imageDataUrl);
-          const blob = await response.blob();
-          const objectUrl = URL.createObjectURL(blob);
-          setUploadedImageUrl(objectUrl);
-        } catch (error) {
-          console.error("Error processing Shopify image upload:", error);
-        }
-      }
-    };
-
-    // Listen for image URL from DesignViewer or other sources
-    const handleImageReady = (event) => {
-      if (event.detail?.imageUrl) {
-        console.log(
-          "DesignPlacementSlider: Received CustomImageReady event",
-          event.detail.imageUrl
-        );
-        setUploadedImageUrl(event.detail.imageUrl);
-      }
-    };
-
+    // Listen for image URL from DesignViewer via designImageUploaded event
+    // This is dispatched by DesignViewer when addLogo() is called
     const handleDesignImageUploaded = (event) => {
       if (event.detail?.imageUrl) {
         console.log(
@@ -138,19 +115,57 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
       }
     };
 
-    window.addEventListener("shopifyImageUploaded", handleShopifyImageUpload);
-    window.addEventListener("CustomImageReady", handleImageReady);
+    // Listen for server-side processed images (after removebg/enhance)
+    const handleImageReady = (event) => {
+      if (event.detail?.imageUrl) {
+        console.log(
+          "DesignPlacementSlider: Received CustomImageReady event",
+          event.detail.imageUrl
+        );
+        setUploadedImageUrl(event.detail.imageUrl);
+      }
+    };
+
+    // Also handle shopifyImageUploaded directly as a fallback
+    // But prefer designImageUploaded event which comes from DesignViewer
+    const handleShopifyImageUpload = async (event) => {
+      const imageDataUrl = event.detail;
+      if (imageDataUrl) {
+        try {
+          console.log(
+            "DesignPlacementSlider: Received shopifyImageUploaded event (fallback)",
+            imageDataUrl
+          );
+          const response = await fetch(imageDataUrl);
+          const blob = await response.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          // Only set if designImageUploaded hasn't set it already
+          // Use a small delay to let designImageUploaded event fire first
+          setTimeout(() => {
+            setUploadedImageUrl((prev) => prev || objectUrl);
+          }, 100);
+        } catch (error) {
+          console.error("Error processing Shopify image upload:", error);
+        }
+      }
+    };
+
+    // Listen to designImageUploaded first (primary source)
     window.addEventListener("designImageUploaded", handleDesignImageUploaded);
+    // Then CustomImageReady for processed images
+    window.addEventListener("CustomImageReady", handleImageReady);
+    // Finally shopifyImageUploaded as fallback
+    window.addEventListener("shopifyImageUploaded", handleShopifyImageUpload);
 
     return () => {
       window.removeEventListener(
-        "shopifyImageUploaded",
-        handleShopifyImageUpload
+        "designImageUploaded",
+        handleDesignImageUploaded
       );
       window.removeEventListener("CustomImageReady", handleImageReady);
       window.removeEventListener(
-        "designImageUploaded",
-        handleDesignImageUploaded
+        "shopifyImageUploaded",
+        handleShopifyImageUpload
       );
     };
   }, []);

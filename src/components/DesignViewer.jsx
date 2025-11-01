@@ -368,10 +368,13 @@ const DesingViewer = () => {
           setCurrentImageBlob(blob);
           const objectUrl = URL.createObjectURL(blob);
           
-          // Add logo to canvases using the URL (this will also set previewUrl and dispatch event)
+          // Add logo to canvases using the URL (this will also set previewUrl and dispatch designImageUploaded event)
+          // This ensures ImagePreview and DesignPlacementSlider both receive the image URL
+          console.log("DesignViewer: Calling addLogo with blob URL", objectUrl);
           addLogo(objectUrl);
 
-          // Upload image to server immediately
+          // Upload image to server in the background (non-blocking)
+          // Once uploaded, dispatch CustomImageReady with server URL
           const form = new FormData();
           form.append("image", blob);
           const res = await fetch(
@@ -384,8 +387,9 @@ const DesingViewer = () => {
 
           if (res.ok) {
             const data = await res.json();
-            console.log("Received link:", data.link);
+            console.log("DesignViewer: Received server link:", data.link);
             if (data.link) setFinalImageLink(data.link);
+            // Dispatch CustomImageReady with server URL for processed images
             window.dispatchEvent(
               new CustomEvent("CustomImageReady", {
                 detail: {
