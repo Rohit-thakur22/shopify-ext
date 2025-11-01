@@ -10,7 +10,7 @@ import { Canvas, Image, filters } from "fabric";
 import ImagePreview from "./ImagePreview";
 import NinjaProgressBar from "./ProgressBar";
 
-const DesingViewer = () => {
+const DesingViewer = ({ onImageUpload }) => {
   const container =
     typeof document !== "undefined"
       ? document.getElementById("cloth-editor-app")
@@ -330,7 +330,11 @@ const DesingViewer = () => {
           }
           return url;
         });
-        // Dispatch event for DesignPlacementSlider
+        // Notify parent component (App) to update DesignPlacementSlider
+        if (onImageUpload) {
+          onImageUpload(url);
+        }
+        // Dispatch event for DesignPlacementSlider (backward compatibility)
         window.dispatchEvent(
           new CustomEvent("designImageUploaded", {
             detail: { imageUrl: url },
@@ -350,7 +354,7 @@ const DesingViewer = () => {
       const objectUrl = URL.createObjectURL(file);
       addWithUrl(objectUrl);
     },
-    [placeOrReplaceLogoOnCanvas, products]
+    [placeOrReplaceLogoOnCanvas, products, onImageUpload]
   );
 
   // Listen for Shopify image uploads (must be after addLogo is defined)
@@ -359,7 +363,6 @@ const DesingViewer = () => {
       const imageDataUrl = event.detail;
       if (imageDataUrl) {
         try {
-          console.log("DesignViewer: Received shopifyImageUploaded event", imageDataUrl);
           // Convert data URL to blob
           const response = await fetch(imageDataUrl);
           const blob = await response.blob();
@@ -368,13 +371,10 @@ const DesingViewer = () => {
           setCurrentImageBlob(blob);
           const objectUrl = URL.createObjectURL(blob);
           
-          // Add logo to canvases using the URL (this will also set previewUrl and dispatch designImageUploaded event)
-          // This ensures ImagePreview and DesignPlacementSlider both receive the image URL
-          console.log("DesignViewer: Calling addLogo with blob URL", objectUrl);
+          // Add logo to canvases using the URL (this will also set previewUrl and dispatch event)
           addLogo(objectUrl);
 
-          // Upload image to server in the background (non-blocking)
-          // Once uploaded, dispatch CustomImageReady with server URL
+          // Upload image to server immediately
           const form = new FormData();
           form.append("image", blob);
           const res = await fetch(
@@ -387,9 +387,8 @@ const DesingViewer = () => {
 
           if (res.ok) {
             const data = await res.json();
-            console.log("DesignViewer: Received server link:", data.link);
+            console.log("Received link:", data.link);
             if (data.link) setFinalImageLink(data.link);
-            // Dispatch CustomImageReady with server URL for processed images
             window.dispatchEvent(
               new CustomEvent("CustomImageReady", {
                 detail: {
@@ -430,6 +429,10 @@ const DesingViewer = () => {
       }
       return null;
     });
+    // Clear parent state (DesignPlacementSlider)
+    if (onImageUpload) {
+      onImageUpload(null);
+    }
     setCurrentImageBlob(null);
     logoRequestIdRef.current += 1;
     fabricCanvasesRef.current.forEach((canvas, idx) => {
@@ -445,7 +448,7 @@ const DesingViewer = () => {
     });
     // ✅ Add window reload at the end (after cleanup)
   window.location.reload(); // full page reload
-  }, []);
+  }, [onImageUpload]);
 
   return (
     <div className="flex justify-between gap-4">

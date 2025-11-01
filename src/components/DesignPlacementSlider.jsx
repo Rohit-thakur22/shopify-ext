@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { Canvas, Image } from "fabric";
 
-const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
+const DesignPlacementSlider = ({ tintColor = "#6b7280", imageUrl: propImageUrl = null, onImageUrlChange }) => {
   const container =
     typeof document !== "undefined"
       ? document.getElementById("cloth-editor-app")
@@ -41,6 +41,12 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
   const uploadedImageUrlRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
+
+  // Use prop imageUrl if provided (from App.jsx via DesignViewer)
+  // This syncs the prop to local state whenever it changes
+  useEffect(() => {
+    setUploadedImageUrl(propImageUrl);
+  }, [propImageUrl]);
 
   // Refs for canvas and images
   const canvasRefs = useRef([]);
@@ -101,74 +107,30 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280" }) => {
     []
   );
 
-  // Listen for image uploads from DesignViewer or other sources
+  // Listen for server-side processed images (after removebg/enhance)
+  // This handles CustomImageReady events for processed images
   useEffect(() => {
-    // Listen for image URL from DesignViewer via designImageUploaded event
-    // This is dispatched by DesignViewer when addLogo() is called
-    const handleDesignImageUploaded = (event) => {
-      if (event.detail?.imageUrl) {
-        console.log(
-          "DesignPlacementSlider: Received designImageUploaded event",
-          event.detail.imageUrl
-        );
-        setUploadedImageUrl(event.detail.imageUrl);
-      }
-    };
-
-    // Listen for server-side processed images (after removebg/enhance)
     const handleImageReady = (event) => {
       if (event.detail?.imageUrl) {
         console.log(
           "DesignPlacementSlider: Received CustomImageReady event",
           event.detail.imageUrl
         );
-        setUploadedImageUrl(event.detail.imageUrl);
-      }
-    };
-
-    // Also handle shopifyImageUploaded directly as a fallback
-    // But prefer designImageUploaded event which comes from DesignViewer
-    const handleShopifyImageUpload = async (event) => {
-      const imageDataUrl = event.detail;
-      if (imageDataUrl) {
-        try {
-          console.log(
-            "DesignPlacementSlider: Received shopifyImageUploaded event (fallback)",
-            imageDataUrl
-          );
-          const response = await fetch(imageDataUrl);
-          const blob = await response.blob();
-          const objectUrl = URL.createObjectURL(blob);
-          // Only set if designImageUploaded hasn't set it already
-          // Use a small delay to let designImageUploaded event fire first
-          setTimeout(() => {
-            setUploadedImageUrl((prev) => prev || objectUrl);
-          }, 100);
-        } catch (error) {
-          console.error("Error processing Shopify image upload:", error);
+        const serverUrl = event.detail.imageUrl;
+        setUploadedImageUrl(serverUrl);
+        // Notify parent if callback provided (for App state sync)
+        if (onImageUrlChange) {
+          onImageUrlChange(serverUrl);
         }
       }
     };
 
-    // Listen to designImageUploaded first (primary source)
-    window.addEventListener("designImageUploaded", handleDesignImageUploaded);
-    // Then CustomImageReady for processed images
     window.addEventListener("CustomImageReady", handleImageReady);
-    // Finally shopifyImageUploaded as fallback
-    window.addEventListener("shopifyImageUploaded", handleShopifyImageUpload);
 
     return () => {
-      window.removeEventListener(
-        "designImageUploaded",
-        handleDesignImageUploaded
-      );
       window.removeEventListener("CustomImageReady", handleImageReady);
-      window.removeEventListener(
-        "shopifyImageUploaded",
-        handleShopifyImageUpload
-      );
     };
-  }, []);
+  }, [onImageUrlChange]);
 
   // Update arrow visibility based on scroll position
   const updateArrowVisibility = useCallback(() => {
