@@ -301,17 +301,30 @@ const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }
         return;
       }
 
-      // Calculate proper scaling for high quality - increased logo size for better visibility
+      // Calculate proper scaling for high quality - scaled down logo size
       const hoodiePixelWidth = baseImg.getScaledWidth();
-      const targetWidth = hoodiePixelWidth * 0.4; // Increased to 40% of garment width for better quality
+      const targetWidth = hoodiePixelWidth * 0.25; // Scaled down to 25% of garment width
       const scale = targetWidth / logo.width;
 
-      // Offset: shift a bit right on the last product only
+      // Offset: adjust position based on product index
       const isLast = idx === products.length - 1;
-      const offsetX = isLast ? baseImg.getScaledWidth() * 0.06 : 0;
-      const offsetY = isLast
-        ? baseImg.getScaledHeight() * 0.1
-        : -baseImg.getScaledHeight() * 0.12;
+      const isFourth = idx === 3; // 4th product (0-indexed)
+      const isFifth = idx === 4; // 5th product (0-indexed)
+      
+      const offsetX = isLast ? baseImg.getScaledWidth() * 0 : 0;
+      
+      // Vertical positioning: 4th and 5th move down, last moves up
+      let offsetY;
+      if (isFourth || isFifth) {
+        // Move down a little (less negative or positive)
+        offsetY = -baseImg.getScaledHeight() * 0.02;
+      } else if (isLast) {
+        // Move up a little (reduce the positive offset)
+        offsetY = baseImg.getScaledHeight() * 0.02;
+      } else {
+        // Default position for others
+        offsetY = -baseImg.getScaledHeight() * 0.12;
+      }
 
       logo.set({
         originX: "center",
