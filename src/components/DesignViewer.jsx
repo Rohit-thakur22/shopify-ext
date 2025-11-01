@@ -113,19 +113,22 @@ const DesingViewer = ({ onImageUpload }) => {
       setShowImagePreview(false);
       return;
     }
-    
-    console.log("DesignViewer: previewUrl changed, will show ImagePreview after 3 seconds. previewUrl:", previewUrl);
-    
+
+    console.log(
+      "DesignViewer: previewUrl changed, will show ImagePreview after 3 seconds. previewUrl:",
+      previewUrl
+    );
+
     // Hide preview initially
     setShowImagePreview(false);
     setShowProgress(false);
-    
+
     // Show ImagePreview after 3 seconds delay
     const delayTimer = setTimeout(() => {
       console.log("DesignViewer: 3 seconds passed, showing ImagePreview");
       setShowImagePreview(true);
     }, 3000);
-    
+
     return () => {
       clearTimeout(delayTimer);
     };
@@ -312,7 +315,7 @@ const DesingViewer = ({ onImageUpload }) => {
 
       // Force high quality render with multiple passes for crisp results
       canvas.requestRenderAll();
-      
+
       // Apply filters and render again for maximum quality
       logo.applyFilters();
       canvas.requestRenderAll();
@@ -391,13 +394,16 @@ const DesingViewer = ({ onImageUpload }) => {
           // Convert data URL to blob
           const response = await fetch(imageDataUrl);
           const blob = await response.blob();
-          
+
           // Set the blob and create URL
           setCurrentImageBlob(blob);
           const objectUrl = URL.createObjectURL(blob);
-          
+
           // Store blob URL in ref to keep it alive even after server upload
-          if (currentBlobUrlRef.current && currentBlobUrlRef.current.startsWith("blob:")) {
+          if (
+            currentBlobUrlRef.current &&
+            currentBlobUrlRef.current.startsWith("blob:")
+          ) {
             try {
               URL.revokeObjectURL(currentBlobUrlRef.current);
             } catch (err) {
@@ -405,9 +411,12 @@ const DesingViewer = ({ onImageUpload }) => {
             }
           }
           currentBlobUrlRef.current = objectUrl;
-          
+
           // Add logo to canvases using the URL (this will also set previewUrl and dispatch event)
-          console.log("DesignViewer: Calling addLogo with objectUrl", objectUrl);
+          console.log(
+            "DesignViewer: Calling addLogo with objectUrl",
+            objectUrl
+          );
           addLogo(objectUrl);
           console.log("DesignViewer: addLogo called, previewUrl should be set");
 
@@ -427,19 +436,28 @@ const DesingViewer = ({ onImageUpload }) => {
             console.log("DesignViewer: Received server link:", data.link);
             if (data.link) {
               setFinalImageLink(data.link);
-              const serverUrl = "https://hqcustomapp.agileappdemo.com/" + data.link;
+              const serverUrl =
+                "https://hqcustomapp.agileappdemo.com/" + data.link;
               // Server upload complete - store server URL for final submission
               // BUT: Keep using blob URL for display to avoid CORS issues
               // Don't update previewUrl or DesignPlacementSlider to server URL
-              console.log("DesignViewer: Server upload complete, server URL:", serverUrl);
-              console.log("DesignViewer: Keeping blob URL for display (server URL has CORS issues)");
-              console.log("DesignViewer: Current blob URL:", currentBlobUrlRef.current);
-              
+              console.log(
+                "DesignViewer: Server upload complete, server URL:",
+                serverUrl
+              );
+              console.log(
+                "DesignViewer: Keeping blob URL for display (server URL has CORS issues)"
+              );
+              console.log(
+                "DesignViewer: Current blob URL:",
+                currentBlobUrlRef.current
+              );
+
               // DO NOT update onImageUpload with server URL - keep blob URL active
               // Server URL is only for final storage/submission, not for display
               // This prevents CORS errors and keeps logos visible
               // The blob URL is stored in currentBlobUrlRef and will remain active
-              
+
               // Dispatch event with server URL for other components that need it (like cart submission)
               // But they should not use it for display
               window.dispatchEvent(
@@ -505,7 +523,7 @@ const DesingViewer = ({ onImageUpload }) => {
       canvas.requestRenderAll();
     });
     // ✅ Add window reload at the end (after cleanup)
-  window.location.reload(); // full page reload
+    window.location.reload(); // full page reload
   }, [onImageUpload]);
 
   return (
@@ -534,21 +552,21 @@ const DesingViewer = ({ onImageUpload }) => {
                 className={`group flex bg-white pt-3 flex-col items-center transform transition-all duration-200 ease-in-out hover:scale-150 z-[${"9".repeat(
                   index + 1
                 )}]`}
-                  style={{
-                    // Ensure crisp scaling with hardware acceleration
-                    willChange: "transform",
-                    backfaceVisibility: "hidden",
-                    transform: "translateZ(0)",
-                    // Additional quality improvements for scaling
-                    imageRendering: "crisp-edges",
-                    WebkitImageRendering: "crisp-edges",
-                  }}
+                style={{
+                  // Ensure crisp scaling with hardware acceleration
+                  willChange: "transform",
+                  backfaceVisibility: "hidden",
+                  transform: "translateZ(0)",
+                  // Additional quality improvements for scaling
+                  imageRendering: "crisp-edges",
+                  WebkitImageRendering: "crisp-edges",
+                }}
               >
-            {/* <h3 className="text-sm font-bold text-black text-nowrap">
+                {/* <h3 className="text-sm font-bold text-black text-nowrap">
                   {product.size}
                 </h3> */}
                 <div className="rounded-lg p-2 w-full max-w-xs aspect-square flex items-center justify-center">
-                  <div 
+                  <div
                     className="w-36 h-44 mx-auto transform transition-transform duration-300 ease-out group-hover:scale-100 bg-white"
                     style={{
                       // CSS-only quality improvements for scaling
@@ -560,11 +578,11 @@ const DesingViewer = ({ onImageUpload }) => {
                   >
                     <canvas
                       ref={(el) => (canvasRefs.current[index] = el)}
-                    style={{
-                      display: "block",
-                      // Enhanced image rendering for better quality during scaling
-                      imageRendering: "crisp-edges",
-                      WebkitImageRendering: "crisp-edges",
+                      style={{
+                        display: "block",
+                        // Enhanced image rendering for better quality during scaling
+                        imageRendering: "crisp-edges",
+                        WebkitImageRendering: "crisp-edges",
                         // Ensure smooth scaling transitions
                         willChange: "transform",
                         backfaceVisibility: "hidden",
@@ -635,11 +653,12 @@ const DesingViewer = ({ onImageUpload }) => {
                   window.dispatchEvent(
                     new CustomEvent("CustomImageReady", {
                       detail: {
-                        imageUrl: "https://hqcustomapp.agileappdemo.com/" + link,
+                        imageUrl:
+                          "https://hqcustomapp.agileappdemo.com/" + link,
                       },
                     })
                   );
-                  
+
                   const blob = await res.blob();
                   setCurrentImageBlob(blob);
                   const nextUrl = URL.createObjectURL(blob);
@@ -669,10 +688,11 @@ const DesingViewer = ({ onImageUpload }) => {
                   window.dispatchEvent(
                     new CustomEvent("CustomImageReady", {
                       detail: {
-                        imageUrl: "https://hqcustomapp.agileappdemo.com/" + link,
+                        imageUrl:
+                          "https://hqcustomapp.agileappdemo.com/" + link,
                       },
                     })
-                  );                  
+                  );
                   const blob = await res.blob();
                   setCurrentImageBlob(blob);
                   const nextUrl = URL.createObjectURL(blob);
