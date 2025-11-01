@@ -44,6 +44,7 @@ const DesignPlacementSlider = ({
   const uploadedImageUrlRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
+  const [isScrollable, setIsScrollable] = useState(false);
 
   // Use prop imageUrl if provided (from App.jsx via DesignViewer)
   // This syncs the prop to local state whenever it changes
@@ -178,17 +179,34 @@ const DesignPlacementSlider = ({
     const container = scrollContainerRef.current;
     const { scrollLeft, scrollWidth, clientWidth } = container;
 
+    const hasScrollableContent = scrollWidth > clientWidth;
+    setIsScrollable(hasScrollableContent);
     setShowLeftArrow(scrollLeft > 0);
-    setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10); // 10px threshold
+    // Show right arrow if there's scrollable content (with 5px threshold for edge cases)
+    setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 5);
   }, []);
 
-  // Set up scroll listener
+  // Set up scroll listener and initial visibility checks
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    // Initial check
+    // Multiple checks to ensure dimensions are calculated correctly
+    // Check immediately
     updateArrowVisibility();
+    
+    // Check after a short delay (ensures DOM is fully laid out)
+    const timeout1 = setTimeout(updateArrowVisibility, 50);
+    
+    // Check after canvases are initialized (300ms delay from canvas init)
+    const timeout2 = setTimeout(updateArrowVisibility, 400);
+    
+    // Check with requestAnimationFrame (ensures after render)
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        updateArrowVisibility();
+      });
+    });
 
     // Listen to scroll events
     container.addEventListener("scroll", updateArrowVisibility);
@@ -199,7 +217,18 @@ const DesignPlacementSlider = ({
     };
     window.addEventListener("resize", handleResize);
 
+    // Periodic check to catch any layout changes
+    const intervalId = setInterval(() => {
+      if (container.scrollWidth > container.clientWidth) {
+        updateArrowVisibility();
+      }
+    }, 500);
+
     return () => {
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
+      cancelAnimationFrame(rafId);
+      clearInterval(intervalId);
       container.removeEventListener("scroll", updateArrowVisibility);
       window.removeEventListener("resize", handleResize);
     };
@@ -285,9 +314,13 @@ const DesignPlacementSlider = ({
       });
 
       // Update arrow visibility after canvases are initialized
+      // Multiple checks to ensure it updates correctly
       setTimeout(() => {
         updateArrowVisibility();
       }, 300);
+      setTimeout(() => {
+        updateArrowVisibility();
+      }, 600); // Additional check after canvases are fully rendered
     });
 
     return () => {
@@ -675,7 +708,7 @@ const DesignPlacementSlider = ({
             )}
 
             {/* Right scroll arrow */}
-          
+            {(showRightArrow || isScrollable) && (
               <div
                 className="absolute right-0 top-1/2 -translate-y-1/2 cursor-pointer z-10"
                 style={{
@@ -709,6 +742,7 @@ const DesignPlacementSlider = ({
                   </svg>
                 </div>
               </div>
+            )}
           
           </>
         )}
