@@ -66,6 +66,7 @@ const DesingViewer = ({ onImageUpload }) => {
   const [loadingRemoveBg, setLoadingRemoveBg] = useState(false);
   const [loadingEnhance, setLoadingEnhance] = useState(false);
   const [showProgress, setShowProgress] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false); // Delay visibility for 3 seconds
   const currentBlobUrlRef = useRef(null); // Store blob URL to keep it alive
 
   // One canvas per product tile
@@ -105,24 +106,29 @@ const DesingViewer = ({ onImageUpload }) => {
     tintColorRef.current = tintColor;
   }, [tintColor]);
 
-  // Show progress bar when a new preview url is set, then hide after a short delay
-  // Note: Progress bar is currently commented out, so this just controls visibility
+  // Show image preview after 3 seconds delay when previewUrl is set
   useEffect(() => {
     if (!previewUrl) {
       setShowProgress(false);
+      setShowImagePreview(false);
       return;
     }
-    console.log("DesignViewer: previewUrl changed, showing progress. previewUrl:", previewUrl);
-    // Show progress for a very short time (500ms) or immediately hide it
-    // Since progress bar is commented out, we can hide immediately
+    
+    console.log("DesignViewer: previewUrl changed, will show ImagePreview after 3 seconds. previewUrl:", previewUrl);
+    
+    // Hide preview initially
+    setShowImagePreview(false);
     setShowProgress(false);
-    // If you want to show progress bar later, uncomment this:
-    // setShowProgress(true);
-    // const id = setTimeout(() => {
-    //   console.log("DesignViewer: Hiding progress, ImagePreview should now be visible");
-    //   setShowProgress(false);
-    // }, 500);
-    // return () => clearTimeout(id);
+    
+    // Show ImagePreview after 3 seconds delay
+    const delayTimer = setTimeout(() => {
+      console.log("DesignViewer: 3 seconds passed, showing ImagePreview");
+      setShowImagePreview(true);
+    }, 3000);
+    
+    return () => {
+      clearTimeout(delayTimer);
+    };
   }, [previewUrl]);
 
   useEffect(() => {
@@ -479,6 +485,8 @@ const DesingViewer = ({ onImageUpload }) => {
       }
       return null;
     });
+    // Reset preview visibility state
+    setShowImagePreview(false);
     // Clear parent state (DesignPlacementSlider)
     if (onImageUpload) {
       onImageUpload(null);
@@ -603,7 +611,7 @@ const DesingViewer = ({ onImageUpload }) => {
           </div>
         )} */}
         {/* Image preview section */}
-        {previewUrl && !showProgress && (
+        {previewUrl && !showProgress && showImagePreview && (
           <div className="flex justify-between">
             <ImagePreview
               imageUrl={previewUrl}
