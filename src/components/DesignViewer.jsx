@@ -66,6 +66,7 @@ const DesingViewer = ({ onImageUpload }) => {
   const [loadingRemoveBg, setLoadingRemoveBg] = useState(false);
   const [loadingEnhance, setLoadingEnhance] = useState(false);
   const [showProgress, setShowProgress] = useState(false);
+  const currentBlobUrlRef = useRef(null); // Store blob URL to keep it alive
 
   // One canvas per product tile
   const canvasRefs = useRef([]);
@@ -104,12 +105,24 @@ const DesingViewer = ({ onImageUpload }) => {
     tintColorRef.current = tintColor;
   }, [tintColor]);
 
-  // Show progress bar when a new preview url is set, then hide after 3s
+  // Show progress bar when a new preview url is set, then hide after a short delay
+  // Note: Progress bar is currently commented out, so this just controls visibility
   useEffect(() => {
-    if (!previewUrl) return;
-    setShowProgress(true);
-    const id = setTimeout(() => setShowProgress(false), 3000);
-    return () => clearTimeout(id);
+    if (!previewUrl) {
+      setShowProgress(false);
+      return;
+    }
+    console.log("DesignViewer: previewUrl changed, showing progress. previewUrl:", previewUrl);
+    // Show progress for a very short time (500ms) or immediately hide it
+    // Since progress bar is commented out, we can hide immediately
+    setShowProgress(false);
+    // If you want to show progress bar later, uncomment this:
+    // setShowProgress(true);
+    // const id = setTimeout(() => {
+    //   console.log("DesignViewer: Hiding progress, ImagePreview should now be visible");
+    //   setShowProgress(false);
+    // }, 500);
+    // return () => clearTimeout(id);
   }, [previewUrl]);
 
   useEffect(() => {
@@ -288,7 +301,7 @@ const DesingViewer = ({ onImageUpload }) => {
       });
 
       canvas.add(logo);
-      logo.bringToFront();
+      canvas.bringToFront(logo);
       logoImagesRef.current[idx] = logo;
 
       // Force high quality render with multiple passes for crisp results
@@ -320,7 +333,9 @@ const DesingViewer = ({ onImageUpload }) => {
         logoRequestIdRef.current += 1;
         const requestId = logoRequestIdRef.current;
         setPreviewUrl((prev) => {
-          if (prev && prev.startsWith("blob:")) {
+          // Only revoke previous blob URL if it's different from the new one
+          // Don't revoke immediately - wait for image to load
+          if (prev && prev.startsWith("blob:") && prev !== url) {
             try {
               URL.revokeObjectURL(prev);
             } catch (err) {
@@ -328,11 +343,15 @@ const DesingViewer = ({ onImageUpload }) => {
               // eslint-disable-next-line no-unused-vars
             }
           }
+          console.log("DesignViewer: Setting previewUrl to", url);
           return url;
         });
         // Notify parent component (App) to update DesignPlacementSlider
         if (onImageUpload) {
+          console.log("DesignViewer: Calling onImageUpload callback with", url);
           onImageUpload(url);
+        } else {
+          console.warn("DesignViewer: onImageUpload callback is not defined!");
         }
         // Dispatch event for DesignPlacementSlider (backward compatibility)
         window.dispatchEvent(
@@ -371,8 +390,20 @@ const DesingViewer = ({ onImageUpload }) => {
           setCurrentImageBlob(blob);
           const objectUrl = URL.createObjectURL(blob);
           
+          // Store blob URL in ref to keep it alive even after server upload
+          if (currentBlobUrlRef.current && currentBlobUrlRef.current.startsWith("blob:")) {
+            try {
+              URL.revokeObjectURL(currentBlobUrlRef.current);
+            } catch (err) {
+              console.error("Error revoking previous blob URL:", err);
+            }
+          }
+          currentBlobUrlRef.current = objectUrl;
+          
           // Add logo to canvases using the URL (this will also set previewUrl and dispatch event)
+          console.log("DesignViewer: Calling addLogo with objectUrl", objectUrl);
           addLogo(objectUrl);
+          console.log("DesignViewer: addLogo called, previewUrl should be set");
 
           // Upload image to server immediately
           const form = new FormData();
@@ -387,15 +418,33 @@ const DesingViewer = ({ onImageUpload }) => {
 
           if (res.ok) {
             const data = await res.json();
-            console.log("Received link:", data.link);
-            if (data.link) setFinalImageLink(data.link);
-            window.dispatchEvent(
-              new CustomEvent("CustomImageReady", {
-                detail: {
-                  imageUrl: "https://hqcustomapp.agileappdemo.com/" + data.link,
-                },
-              })
-            );
+            console.log("DesignViewer: Received server link:", data.link);
+            if (data.link) {
+              setFinalImageLink(data.link);
+              const serverUrl = "https://hqcustomapp.agileappdemo.com/" + data.link;
+              // Server upload complete - store server URL for final submission
+              // BUT: Keep using blob URL for display to avoid CORS issues
+              // Don't update previewUrl or DesignPlacementSlider to server URL
+              console.log("DesignViewer: Server upload complete, server URL:", serverUrl);
+              console.log("DesignViewer: Keeping blob URL for display (server URL has CORS issues)");
+              console.log("DesignViewer: Current blob URL:", currentBlobUrlRef.current);
+              
+              // DO NOT update onImageUpload with server URL - keep blob URL active
+              // Server URL is only for final storage/submission, not for display
+              // This prevents CORS errors and keeps logos visible
+              // The blob URL is stored in currentBlobUrlRef and will remain active
+              
+              // Dispatch event with server URL for other components that need it (like cart submission)
+              // But they should not use it for display
+              window.dispatchEvent(
+                new CustomEvent("CustomImageReady", {
+                  detail: {
+                    imageUrl: serverUrl, // For storage/submission only
+                    displayUrl: currentBlobUrlRef.current, // Keep blob URL for display
+                  },
+                })
+              );
+            }
           } else {
             console.error("Upload failed:", res.status, res.statusText);
           }
@@ -415,6 +464,7 @@ const DesingViewer = ({ onImageUpload }) => {
         handleShopifyImageUpload
       );
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addLogo]);
 
   const clearPreview = useCallback(() => {

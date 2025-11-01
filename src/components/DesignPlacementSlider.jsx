@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { Canvas, Image } from "fabric";
 
-const DesignPlacementSlider = ({ tintColor = "#6b7280", imageUrl: propImageUrl = null, onImageUrlChange }) => {
+const DesignPlacementSlider = ({ tintColor = "#6b7280", imageUrl: propImageUrl = null }) => {
   const container =
     typeof document !== "undefined"
       ? document.getElementById("cloth-editor-app")
@@ -44,9 +44,25 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280", imageUrl: propImageUrl =
 
   // Use prop imageUrl if provided (from App.jsx via DesignViewer)
   // This syncs the prop to local state whenever it changes
+  // IMPORTANT: Ignore server URLs (HTTP/HTTPS) if we already have a working blob URL
   useEffect(() => {
-    setUploadedImageUrl(propImageUrl);
-  }, [propImageUrl]);
+    console.log("DesignPlacementSlider: propImageUrl changed to", propImageUrl);
+    
+    // If prop is a server URL (http/https) and we already have a blob URL, ignore it
+    // Server URLs have CORS issues, blob URLs work fine
+    if (propImageUrl && 
+        (propImageUrl.startsWith("http://") || propImageUrl.startsWith("https://")) &&
+        uploadedImageUrl && 
+        uploadedImageUrl.startsWith("blob:")) {
+      console.log("DesignPlacementSlider: Ignoring server URL update (CORS issues), keeping blob URL");
+      return; // Don't update to server URL
+    }
+    
+    // Update state with prop (will be blob URL on initial load)
+    if (propImageUrl !== uploadedImageUrl) {
+      setUploadedImageUrl(propImageUrl);
+    }
+  }, [propImageUrl, uploadedImageUrl]);
 
   // Refs for canvas and images
   const canvasRefs = useRef([]);
@@ -108,19 +124,29 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280", imageUrl: propImageUrl =
   );
 
   // Listen for server-side processed images (after removebg/enhance)
-  // This handles CustomImageReady events for processed images
+  // NOTE: Server URLs have CORS issues, so we ignore them and keep using blob URLs
+  // Only removebg/enhance actually work because they return new blob URLs
   useEffect(() => {
     const handleImageReady = (event) => {
       if (event.detail?.imageUrl) {
+        const serverUrl = event.detail.imageUrl;
+        const displayUrl = event.detail.displayUrl; // Blob URL for display
+        
         console.log(
           "DesignPlacementSlider: Received CustomImageReady event",
-          event.detail.imageUrl
+          "Server URL:", serverUrl,
+          "Display URL (blob):", displayUrl
         );
-        const serverUrl = event.detail.imageUrl;
-        setUploadedImageUrl(serverUrl);
-        // Notify parent if callback provided (for App state sync)
-        if (onImageUrlChange) {
-          onImageUrlChange(serverUrl);
+        
+        // If there's a displayUrl (blob), use that instead of server URL
+        // Server URLs have CORS issues, blob URLs work fine
+        if (displayUrl && displayUrl.startsWith("blob:")) {
+          console.log("DesignPlacementSlider: Using blob URL from CustomImageReady for display");
+          // Don't update state - it should already have the blob URL from initial upload
+          // This is just for logging
+        } else {
+          console.log("DesignPlacementSlider: Ignoring server URL due to CORS issues, keeping blob URL");
+          // Don't update to server URL - keep using blob URL
         }
       }
     };
@@ -130,7 +156,7 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280", imageUrl: propImageUrl =
     return () => {
       window.removeEventListener("CustomImageReady", handleImageReady);
     };
-  }, [onImageUrlChange]);
+  }, []);
 
   // Update arrow visibility based on scroll position
   const updateArrowVisibility = useCallback(() => {
@@ -228,7 +254,7 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280", imageUrl: propImageUrl =
           // Add logo if already uploaded (wait a bit to ensure canvas is fully rendered)
           if (uploadedImageUrl) {
             setTimeout(() => {
-              placeLogoOnCanvas(idx, uploadedImageUrl, placement);
+              placeLogoOnCanvas(idx, uploadedImageUrl, placement, null);
             }, 50);
           }
         });
@@ -252,32 +278,63 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280", imageUrl: propImageUrl =
 
   // Update logo when image URL changes
   useEffect(() => {
-    // Cleanup previous blob URL if it exists
-    if (
-      uploadedImageUrlRef.current &&
-      uploadedImageUrlRef.current.startsWith("blob:")
-    ) {
-      try {
-        URL.revokeObjectURL(uploadedImageUrlRef.current);
-      } catch (err) {
-        console.error(err);
-      }
+    const prevUrl = uploadedImageUrlRef.current;
+    
+    // Skip if URL hasn't actually changed
+    if (prevUrl === uploadedImageUrl) {
+      console.log("DesignPlacementSlider: uploadedImageUrl unchanged, skipping logo placement");
+      return;
     }
+    
+    // Don't revoke blob URL immediately - wait until new image is successfully loaded
+    // We'll revoke it later in the cleanup or after successful load
     uploadedImageUrlRef.current = uploadedImageUrl;
 
     if (uploadedImageUrl) {
+      console.log("DesignPlacementSlider: uploadedImageUrl changed, attempting to place logos:", uploadedImageUrl);
+      console.log("DesignPlacementSlider: Previous URL was:", prevUrl);
+      
       // Ensure canvases are ready before placing logos
+      // Use retry logic in case canvases are still initializing
+      let attempts = 0;
+      const maxAttempts = 10;
+      const retryDelay = 200;
+
       const placeLogos = () => {
+        let allReady = true;
+        const readyCanvases = [];
+
         placements.forEach((placement, idx) => {
           const canvas = fabricCanvasesRef.current[idx];
           const baseImg = baseImagesRef.current[idx];
+          
           if (canvas && baseImg) {
-            placeLogoOnCanvas(idx, uploadedImageUrl, placement);
+            readyCanvases.push({ idx, placement });
+          } else {
+            allReady = false;
+            console.log(`DesignPlacementSlider: Canvas ${idx} not ready yet - canvas: ${!!canvas}, baseImg: ${!!baseImg}`);
           }
         });
+
+        if (allReady && readyCanvases.length > 0) {
+          console.log(`DesignPlacementSlider: All ${readyCanvases.length} canvases ready, placing logos`);
+          readyCanvases.forEach(({ idx, placement }) => {
+            placeLogoOnCanvas(idx, uploadedImageUrl, placement, prevUrl);
+          });
+        } else if (attempts < maxAttempts) {
+          attempts++;
+          console.log(`DesignPlacementSlider: Retry attempt ${attempts}/${maxAttempts} in ${retryDelay}ms`);
+          setTimeout(placeLogos, retryDelay);
+        } else {
+          console.warn("DesignPlacementSlider: Max retry attempts reached, some canvases may not be ready");
+          // Try to place on ready canvases anyway
+          readyCanvases.forEach(({ idx, placement }) => {
+            placeLogoOnCanvas(idx, uploadedImageUrl, placement, prevUrl);
+          });
+        }
       };
 
-      // Small delay to ensure canvases are fully initialized
+      // Start with a small delay to let canvases initialize
       setTimeout(placeLogos, 100);
     } else {
       // Remove logos if image is cleared
@@ -314,19 +371,28 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280", imageUrl: propImageUrl =
     };
   }, []);
 
-  const placeLogoOnCanvas = useCallback((idx, imageUrl, placement) => {
+  const placeLogoOnCanvas = useCallback((idx, imageUrl, placement, prevUrl = null) => {
     const canvas = fabricCanvasesRef.current[idx];
     const baseImg = baseImagesRef.current[idx];
     if (!canvas || !baseImg || !imageUrl) {
       console.warn(
-        `DesignPlacementSlider: Cannot place logo - canvas: ${!!canvas}, baseImg: ${!!baseImg}, imageUrl: ${!!imageUrl}, placement: ${
+        `DesignPlacementSlider: Cannot place logo on canvas ${idx} - canvas: ${!!canvas}, baseImg: ${!!baseImg}, imageUrl: ${!!imageUrl}, placement: ${
           placement?.id
         }`
       );
       return;
     }
+    
+    // Check if we already have the same logo URL - if so, don't re-place it
+    const existingLogo = logoImagesRef.current[idx];
+    if (existingLogo && existingLogo._element && existingLogo._element.src === imageUrl) {
+      console.log(`DesignPlacementSlider: Logo on canvas ${idx} already has the same URL, skipping re-placement`);
+      return;
+    }
+    
+    console.log(`DesignPlacementSlider: Placing logo on canvas ${idx} (${placement.label}) with URL:`, imageUrl);
 
-    // Remove existing logo
+    // Remove existing logo only if URL is different
     const objects = canvas.getObjects();
     objects.forEach((obj) => {
       if (obj !== baseImg) {
@@ -335,6 +401,10 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280", imageUrl: propImageUrl =
     });
     logoImagesRef.current[idx] = null;
     canvas.requestRenderAll();
+
+    // Track if this is a blob URL and what the previous blob URL was
+    const isBlobUrl = imageUrl.startsWith("blob:");
+    const prevBlobUrl = prevUrl && prevUrl.startsWith("blob:") ? prevUrl : null;
 
     Image.fromURL(imageUrl, {
       crossOrigin: "anonymous",
@@ -367,9 +437,32 @@ const DesignPlacementSlider = ({ tintColor = "#6b7280", imageUrl: propImageUrl =
       });
 
       canvas.add(logo);
-      logo.bringToFront();
+      canvas.bringToFront(logo);
       logoImagesRef.current[idx] = logo;
       canvas.requestRenderAll();
+      
+      console.log(`DesignPlacementSlider: Logo successfully placed on canvas ${idx} (${placement.label})`);
+      
+      // If we successfully loaded a new URL (not blob), we can now revoke the previous blob URL
+      if (!isBlobUrl && prevBlobUrl && prevBlobUrl !== imageUrl) {
+        try {
+          URL.revokeObjectURL(prevBlobUrl);
+          console.log(`DesignPlacementSlider: Revoked previous blob URL after successful load`);
+        } catch (err) {
+          console.error("Error revoking blob URL:", err);
+        }
+      }
+    }).catch((error) => {
+      console.error(`DesignPlacementSlider: Error loading logo for canvas ${idx}:`, error);
+      
+      // If loading server URL fails and we have a blob URL, keep using the blob URL
+      if (!isBlobUrl && prevBlobUrl && prevBlobUrl !== imageUrl) {
+        console.warn(`DesignPlacementSlider: Server URL failed (CORS?), keeping blob URL for canvas ${idx}`);
+        // Don't update to failed URL - keep the working blob URL
+        return;
+      }
+      
+      console.warn(`DesignPlacementSlider: Failed to load logo from ${imageUrl}, canvas ${idx} will remain without logo`);
     });
   }, []);
 
