@@ -10,7 +10,7 @@ import { Canvas, Image, filters } from "fabric";
 import ImagePreview from "./ImagePreview";
 import NinjaProgressBar from "./ProgressBar";
 
-const DesingViewer = ({ onImageUpload }) => {
+const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }) => {
   const container =
     typeof document !== "undefined"
       ? document.getElementById("cloth-editor-app")
@@ -97,8 +97,10 @@ const DesingViewer = ({ onImageUpload }) => {
     "#b3b300",
     "#00b300",
   ];
-  const [tintColor, setTintColor] = useState("#6b7280");
-  const tintColorRef = useRef("#6b7280");
+  // Use prop color if provided, otherwise use local state
+  const [localTintColor, setLocalTintColor] = useState("#6b7280");
+  const tintColor = propTintColor !== undefined ? propTintColor : localTintColor;
+  const tintColorRef = useRef(tintColor);
   // const [isDragging, setIsDragging] = useState(false);
   const [finalImageLink, setFinalImageLink] = useState(null);
 
@@ -202,12 +204,12 @@ const DesingViewer = ({ onImageUpload }) => {
             strokeDashArray: null,
           });
 
-          // apply initial tint while preserving shadows/highlights
+          // apply initial tint while preserving shadows/highlights and details
           img.filters = [
             new filters.BlendColor({
               color: tintColorRef.current,
               mode: "tint",
-              alpha: 1,
+              alpha: 0.65, // Reduced from 1 to preserve details like foldings
             }),
           ];
           img.dirty = true;
@@ -231,16 +233,42 @@ const DesingViewer = ({ onImageUpload }) => {
   }, [products]);
 
   const changeColor = useCallback((color) => {
-    setTintColor(color);
+    // Update local state if not controlled by parent
+    if (propTintColor === undefined) {
+      setLocalTintColor(color);
+    }
+    
+    // Notify parent of color change
+    if (onColorChange) {
+      onColorChange(color);
+    }
+    
+    // Update all canvas images with new color (preserving details)
     baseImagesRef.current.forEach((img, idx) => {
       if (!img) return;
-      img.filters = [new filters.BlendColor({ color, mode: "tint", alpha: 1 })];
+      img.filters = [new filters.BlendColor({ color, mode: "tint", alpha: 0.65 })];
       img.dirty = true;
       img.applyFilters();
       const canvas = fabricCanvasesRef.current[idx];
       if (canvas) canvas.renderAll();
     });
-  }, []);
+  }, [propTintColor, onColorChange]);
+
+  // Update tint color when prop changes (synced from App)
+  useEffect(() => {
+    if (!tintColor) return;
+    
+    // Update canvases when tint color changes (from prop or local state)
+    // This ensures both local clicks and external prop changes update the display
+    baseImagesRef.current.forEach((img, idx) => {
+      if (!img) return;
+      img.filters = [new filters.BlendColor({ color: tintColor, mode: "tint", alpha: 0.65 })];
+      img.dirty = true;
+      img.applyFilters();
+      const canvas = fabricCanvasesRef.current[idx];
+      if (canvas) canvas.renderAll();
+    });
+  }, [tintColor]);
 
   const placeOrReplaceLogoOnCanvas = useCallback((idx, url, requestId) => {
     const canvas = fabricCanvasesRef.current[idx];

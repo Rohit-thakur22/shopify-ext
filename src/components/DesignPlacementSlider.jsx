@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Canvas, Image } from "fabric";
+import { Canvas, Image, filters } from "fabric";
 
 const DesignPlacementSlider = ({
   tintColor = "#6b7280",
@@ -259,6 +259,16 @@ const DesignPlacementSlider = ({
             dirty: true,
           });
 
+          // Apply tint color filter to shirt with reduced alpha to preserve details
+          // Using alpha 0.6-0.7 preserves foldings, shadows, and other details
+          img.filters = [
+            new filters.BlendColor({
+              color: tintColor,
+              mode: "tint",
+              alpha: 0.65, // Reduced from 1 to preserve details
+            }),
+          ];
+          img.dirty = true;
           img.applyFilters();
 
           baseImagesRef.current[idx] = img;
@@ -288,7 +298,30 @@ const DesignPlacementSlider = ({
       logoImagesRef.current = [];
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placements, getTshirtSource, tintColor, updateArrowVisibility]);
+  }, [placements, getTshirtSource, updateArrowVisibility]);
+
+  // Update tint color when it changes (synced from DesignViewer via App)
+  useEffect(() => {
+    if (!tintColor) return;
+    
+    console.log("DesignPlacementSlider: tintColor changed to", tintColor);
+    
+    // Update all canvas base images with new tint color (preserving details)
+    baseImagesRef.current.forEach((img, idx) => {
+      if (!img) return;
+      img.filters = [
+        new filters.BlendColor({
+          color: tintColor,
+          mode: "tint",
+          alpha: 0.65, // Reduced from 1 to preserve details like foldings
+        }),
+      ];
+      img.dirty = true;
+      img.applyFilters();
+      const canvas = fabricCanvasesRef.current[idx];
+      if (canvas) canvas.renderAll();
+    });
+  }, [tintColor]);
 
   // Update logo when image URL changes
   useEffect(() => {
