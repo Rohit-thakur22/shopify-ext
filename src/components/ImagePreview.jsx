@@ -40,7 +40,7 @@ const ImagePreview = ({
         </span>
       </div>
 
-      <div className="flex">
+      <div className="flex flex-col lg:flex-row">
         {/* Main area with left-side zoom preview on hover */}
         <div className="relative flex items-start justify-center gap-4">
           {/* Left zoom pane */}

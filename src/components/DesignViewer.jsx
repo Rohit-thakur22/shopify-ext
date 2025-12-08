@@ -20,12 +20,12 @@ const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }
     if (container?.dataset?.hoodie) {
       // Running inside Shopify (Liquid injected)
       return [
-        container.dataset.hoodie,
-        container.dataset.cap,
         container.dataset.tshirt,
-        container.dataset.shorts,
+        container.dataset.hoodie,
         container.dataset.polo,
+        container.dataset.cap,
         container.dataset.apron,
+        container.dataset.shorts,
       ].filter(Boolean);
     } else {
       // Local dev fallback (Vite public folder)

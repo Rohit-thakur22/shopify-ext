@@ -12,28 +12,32 @@
   width: 525px;
 }
 
-@media screen and (max-width: 640px) {
-    .Slider-Box {
-      width: 90% !important;
-      top: 1325px;
-    }
-    .ImagePreview{
-      top: -108px !important;
-    }
-  }
 
-@media screen and (max-width: 990px) {
-  .Slider-Box {
-    width: 90% !important;
-    top: 1325px;
-  }
-  .ImagePreview{
-    top: -70px !important;
-  }
-}
+
+
 
 @media screen and (min-width: 1400px) {
   .Slider-Box {
     width: 710px;
+  }
+}
+
+@media screen and (max-width: 990px) {
+  .Slider-Box {
+    width: 90% !important;
+    top: 1250px;
+  }
+  .ImagePreview{
+    top: -130px ;
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .Slider-Box {
+    width: 90% !important;
+    top: 1325px ;
+  }
+  .ImagePreview{
+    top: -200px ;
   }
 }
