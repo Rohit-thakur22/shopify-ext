@@ -26,6 +26,7 @@ function App() {
   };
 
   return (
+    
     <div className='w-full bg-white p-4'>
       <DesignViewer 
         onImageUpload={handleImageUpload}

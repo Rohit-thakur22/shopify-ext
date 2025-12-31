@@ -32,8 +32,8 @@ const ImagePreview = ({
       ? document.getElementById("cloth-editor-app")
       : null;
   return (
-    <div className="ImagePreview w-[90%] md:w-lg absolute top-[0px] lg:-top-[58px] right-[20px] xl:right-[95px] z-[99999]">
-      <div className="flex items-center justify-center gap-2 mb-2 select-none">
+    <div className="ImagePreview w-[90%]  lg:w-lg absolute top-[0px] lg:-top-[58px] right-[20px] xl:right-[95px] z-[99999]">
+      <div className="hidden lg:flex items-center justify-center gap-2 mb-2 select-none ">
         <span className="text-sm text-gray-700">Hover to Zoom</span>
         <span className="text-sm text-blue-600 cursor-zoom-in">
           Click to enlarge

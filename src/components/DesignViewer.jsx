@@ -10,7 +10,11 @@ import { Canvas, Image, filters } from "fabric";
 import ImagePreview from "./ImagePreview";
 import NinjaProgressBar from "./ProgressBar";
 
-const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }) => {
+const DesingViewer = ({
+  onImageUpload,
+  tintColor: propTintColor,
+  onColorChange,
+}) => {
   const container =
     typeof document !== "undefined"
       ? document.getElementById("cloth-editor-app")
@@ -99,7 +103,8 @@ const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }
   ];
   // Use prop color if provided, otherwise use local state
   const [localTintColor, setLocalTintColor] = useState("#6b7280");
-  const tintColor = propTintColor !== undefined ? propTintColor : localTintColor;
+  const tintColor =
+    propTintColor !== undefined ? propTintColor : localTintColor;
   const tintColorRef = useRef(tintColor);
   // const [isDragging, setIsDragging] = useState(false);
   const [finalImageLink, setFinalImageLink] = useState(null);
@@ -232,37 +237,44 @@ const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products]);
 
-  const changeColor = useCallback((color) => {
-    // Update local state if not controlled by parent
-    if (propTintColor === undefined) {
-      setLocalTintColor(color);
-    }
-    
-    // Notify parent of color change
-    if (onColorChange) {
-      onColorChange(color);
-    }
-    
-    // Update all canvas images with new color (preserving details)
-    baseImagesRef.current.forEach((img, idx) => {
-      if (!img) return;
-      img.filters = [new filters.BlendColor({ color, mode: "tint", alpha: 0.65 })];
-      img.dirty = true;
-      img.applyFilters();
-      const canvas = fabricCanvasesRef.current[idx];
-      if (canvas) canvas.renderAll();
-    });
-  }, [propTintColor, onColorChange]);
+  const changeColor = useCallback(
+    (color) => {
+      // Update local state if not controlled by parent
+      if (propTintColor === undefined) {
+        setLocalTintColor(color);
+      }
+
+      // Notify parent of color change
+      if (onColorChange) {
+        onColorChange(color);
+      }
+
+      // Update all canvas images with new color (preserving details)
+      baseImagesRef.current.forEach((img, idx) => {
+        if (!img) return;
+        img.filters = [
+          new filters.BlendColor({ color, mode: "tint", alpha: 0.65 }),
+        ];
+        img.dirty = true;
+        img.applyFilters();
+        const canvas = fabricCanvasesRef.current[idx];
+        if (canvas) canvas.renderAll();
+      });
+    },
+    [propTintColor, onColorChange]
+  );
 
   // Update tint color when prop changes (synced from App)
   useEffect(() => {
     if (!tintColor) return;
-    
+
     // Update canvases when tint color changes (from prop or local state)
     // This ensures both local clicks and external prop changes update the display
     baseImagesRef.current.forEach((img, idx) => {
       if (!img) return;
-      img.filters = [new filters.BlendColor({ color: tintColor, mode: "tint", alpha: 0.65 })];
+      img.filters = [
+        new filters.BlendColor({ color: tintColor, mode: "tint", alpha: 0.65 }),
+      ];
       img.dirty = true;
       img.applyFilters();
       const canvas = fabricCanvasesRef.current[idx];
@@ -310,9 +322,9 @@ const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }
       const isLast = idx === products.length - 1;
       const isFourth = idx === 3; // 4th product (0-indexed)
       const isFifth = idx === 4; // 5th product (0-indexed)
-      
+
       const offsetX = isLast ? baseImg.getScaledWidth() * 0 : 0;
-      
+
       // Vertical positioning: 4th and 5th move down, last moves up
       let offsetY;
       if (isFourth || isFifth) {
@@ -682,7 +694,7 @@ const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }
                   const form = new FormData();
                   form.append("image", currentImageBlob);
                   const res = await fetch(
-                    "https://hqcustomapp.agileappdemo.com/api/images/remove-bg",
+                    "https://highquality.allgovjobs.com/api/images/remove-bg",
                     { method: "POST", body: form }
                   );
                   // if (!res.ok) throw new Error("Request failed");
@@ -694,8 +706,7 @@ const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }
                   window.dispatchEvent(
                     new CustomEvent("CustomImageReady", {
                       detail: {
-                        imageUrl:
-                          "https://hqcustomapp.agileappdemo.com/" + link,
+                        imageUrl: "https://highquality.allgovjobs.com/" + link,
                       },
                     })
                   );
@@ -717,7 +728,7 @@ const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }
                   const form = new FormData();
                   form.append("image", currentImageBlob);
                   const res = await fetch(
-                    "https://hqcustomapp.agileappdemo.com/api/images/enhance",
+                    "https://highquality.allgovjobs.com/api/images/enhance",
                     { method: "POST", body: form }
                   );
                   // if (!res.ok) throw new Error("Request failed");
@@ -729,8 +740,7 @@ const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }
                   window.dispatchEvent(
                     new CustomEvent("CustomImageReady", {
                       detail: {
-                        imageUrl:
-                          "https://hqcustomapp.agileappdemo.com/" + link,
+                        imageUrl: "https://highquality.allgovjobs.com/" + link,
                       },
                     })
                   );
@@ -775,7 +785,7 @@ const DesingViewer = ({ onImageUpload, tintColor: propTintColor, onColorChange }
                       quantity: 1,
                       properties: {
                         CustomImage:
-                          "https://hqcustomapp.agileappdemo.com/" +
+                          "https://highquality.allgovjobs.com/" +
                           finalImageLink,
                       },
                     }),
