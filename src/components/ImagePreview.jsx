@@ -130,7 +130,7 @@ const ImagePreview = ({
             marginLeft: 10,
           }}
         >
-          <button
+          {/* <button
             type="button"
             className={`w-[120px] cursor-pointer flex justify-center text-center group items-center gap-2 px-2 py-2 rounded-lg text-sm font-semibold shadow-sm border transition-all duration-150 ${
               loadingRemoveBg
@@ -144,8 +144,8 @@ const ImagePreview = ({
               background: "linear-gradient(90deg, #6a2fc1, #2e89d0)",
               color: "white",
             }}
-          >
-            {/* {loadingRemoveBg ? (
+          > */}
+          {/* {loadingRemoveBg ? (
               <svg
                 className="animate-spin h-4 w-4 text-blue-600"
                 xmlns="http://www.w3.org/2000/svg"
@@ -176,8 +176,8 @@ const ImagePreview = ({
                 <path d="M5 12a7 7 0 1114 0 7 7 0 01-14 0zm9.5-2.5a1.5 1.5 0 10-3 0v5a1.5 1.5 0 003 0v-5zM12 7a1 1 0 100-2 1 1 0 000 2z" />
               </svg>
             )} */}
-            <span>{loadingRemoveBg ? "Removing…" : "Remove Bg"}</span>
-          </button>
+          {/* <span>{loadingRemoveBg ? "Removing…" : "Remove Bg"}</span>
+          </button> */}
 
           <button
             type="button"

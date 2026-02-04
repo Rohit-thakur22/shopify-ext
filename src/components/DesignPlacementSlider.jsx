@@ -7,71 +7,24 @@ import React, {
 } from "react";
 import { Canvas, Image, filters } from "fabric";
 
+/**
+ * DesignPlacementSlider - Shows design placement options on different garment views
+ * 
+ * Props:
+ * - imageUrl: The uploaded/processed image URL to display
+ * - tintColor: The color to tint the garments
+ * - onPlacementChange: Callback when user selects a placement (optional)
+ * - assetUrls: Object containing Shopify CDN URLs for product images
+ */
 const DesignPlacementSlider = ({
+  imageUrl,
   tintColor = "#6b7280",
-  imageUrl: propImageUrl = null,
+  onPlacementChange,
+  assetUrls = {},
 }) => {
-  const container =
-    typeof document !== "undefined"
-      ? document.getElementById("cloth-editor-app")
-      : null;
-
-  // Get t-shirt image source based on view type
-  const getTshirtSource = useCallback(
-    (view) => {
-      if (container?.dataset?.tshirt) {
-        const viewMap = {
-          front: container.dataset.front,
-          back: container.dataset.back,
-          side: container.dataset.side,
-        };
-        return viewMap[view];
-      } else {
-        // Local dev - use appropriate view images
-        const viewMap = {
-          front: "/assets/front-shirt.png",
-          back: "/assets/back-shirt.png",
-          side: "/assets/left-side-shirt.png",
-        };
-        return viewMap[view] || "/assets/tshirt.png";
-      }
-    },
-    [container]
-  );
-
-  const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
   const [selectedPlacement, setSelectedPlacement] = useState("custom");
-  const uploadedImageUrlRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(false);
-  const [isScrollable, setIsScrollable] = useState(false);
-
-  // Use prop imageUrl if provided (from App.jsx via DesignViewer)
-  // This syncs the prop to local state whenever it changes
-  // IMPORTANT: Ignore server URLs (HTTP/HTTPS) if we already have a working blob URL
-  useEffect(() => {
-    console.log("DesignPlacementSlider: propImageUrl changed to", propImageUrl);
-
-    // If prop is a server URL (http/https) and we already have a blob URL, ignore it
-    // Server URLs have CORS issues, blob URLs work fine
-    if (
-      propImageUrl &&
-      (propImageUrl.startsWith("http://") ||
-        propImageUrl.startsWith("https://")) &&
-      uploadedImageUrl &&
-      uploadedImageUrl.startsWith("blob:")
-    ) {
-      console.log(
-        "DesignPlacementSlider: Ignoring server URL update (CORS issues), keeping blob URL"
-      );
-      return; // Don't update to server URL
-    }
-
-    // Update state with prop (will be blob URL on initial load)
-    if (propImageUrl !== uploadedImageUrl) {
-      setUploadedImageUrl(propImageUrl);
-    }
-  }, [propImageUrl, uploadedImageUrl]);
+  const [showRightArrow, setShowRightArrow] = useState(true);
 
   // Refs for canvas and images
   const canvasRefs = useRef([]);
@@ -79,9 +32,21 @@ const DesignPlacementSlider = ({
   const baseImagesRef = useRef([]);
   const logoImagesRef = useRef([]);
   const scrollContainerRef = useRef(null);
+  const prevImageUrlRef = useRef(null);
 
   const CANVAS_W = 130;
   const CANVAS_H = 150;
+
+  // Get t-shirt image source based on view type
+  // Uses Shopify CDN URLs if available, fallback to local assets
+  const getTshirtSource = useCallback((view) => {
+    const viewMap = {
+      front: assetUrls.front || "/assets/front-shirt.png",
+      back: assetUrls.back || "/assets/back-shirt.png",
+      side: assetUrls.side || "/assets/left-side-shirt.png",
+    };
+    return viewMap[view] || assetUrls.tshirt || "/assets/tshirt.png";
+  }, [assetUrls]);
 
   // Placement configurations
   const placements = useMemo(
@@ -89,89 +54,48 @@ const DesignPlacementSlider = ({
       {
         id: "custom",
         label: "Custom",
-        view: "front", // front, back, or side
-        position: { x: 0, y: -0.05 }, // slightly above center
-        scale: 0, // relative to garment width
+        view: "front",
+        position: { x: 0, y: -0.05 },
+        scale: 0.25,
       },
       {
         id: "full-front",
         label: "Full Front",
         view: "front",
-        position: { x: 0, y: -0.2 }, // center
-        scale: 0.3,
+        position: { x: 0, y: -0.15 },
+        scale: 0.35,
       },
       {
         id: "full-back",
         label: "Full Back",
         view: "back",
-        position: { x: 0, y: -0.2 }, // center
-        scale: 0.3,
+        position: { x: 0, y: -0.15 },
+        scale: 0.35,
       },
       {
         id: "left-chest",
         label: "Left Chest",
         view: "front",
-        position: { x: 0.12, y: -0.22 }, // left and upper chest area
-        scale: 0.2,
+        position: { x: 0.12, y: -0.22 },
+        scale: 0.18,
       },
       {
         id: "sleeve",
         label: "Sleeve",
-        view: "side", // using side view for sleeve
-        position: { x: 0.09, y: -0.19 }, // right side for sleeve (on side view)
-        scale: 0.3,
+        view: "side",
+        position: { x: 0.09, y: -0.19 },
+        scale: 0.22,
       },
       {
         id: "back-collar",
         label: "Back Collar",
-        view: "back", // using side view for sleeve
-        position: { x: 0, y: -0.25 }, // right side for sleeve (on side view)
-        scale: 0.3,
+        view: "back",
+        position: { x: 0, y: -0.28 },
+        scale: 0.2,
       },
     ],
     []
   );
-
-  // Listen for server-side processed images (after removebg/enhance)
-  // NOTE: Server URLs have CORS issues, so we ignore them and keep using blob URLs
-  // Only removebg/enhance actually work because they return new blob URLs
-  useEffect(() => {
-    const handleImageReady = (event) => {
-      if (event.detail?.imageUrl) {
-        const serverUrl = event.detail.imageUrl;
-        const displayUrl = event.detail.displayUrl; // Blob URL for display
-
-        console.log(
-          "DesignPlacementSlider: Received CustomImageReady event",
-          "Server URL:",
-          serverUrl,
-          "Display URL (blob):",
-          displayUrl
-        );
-
-        // If there's a displayUrl (blob), use that instead of server URL
-        // Server URLs have CORS issues, blob URLs work fine
-        if (displayUrl && displayUrl.startsWith("blob:")) {
-          console.log(
-            "DesignPlacementSlider: Using blob URL from CustomImageReady for display"
-          );
-          // Don't update state - it should already have the blob URL from initial upload
-          // This is just for logging
-        } else {
-          console.log(
-            "DesignPlacementSlider: Ignoring server URL due to CORS issues, keeping blob URL"
-          );
-          // Don't update to server URL - keep using blob URL
-        }
-      }
-    };
-
-    window.addEventListener("CustomImageReady", handleImageReady);
-
-    return () => {
-      window.removeEventListener("CustomImageReady", handleImageReady);
-    };
-  }, []);
 
   // Update arrow visibility based on scroll position
   const updateArrowVisibility = useCallback(() => {
@@ -179,58 +103,22 @@ const DesignPlacementSlider = ({
     const container = scrollContainerRef.current;
     const { scrollLeft, scrollWidth, clientWidth } = container;
 
-    const hasScrollableContent = scrollWidth > clientWidth;
-    setIsScrollable(hasScrollableContent);
     setShowLeftArrow(scrollLeft > 0);
-    // Show right arrow if there's scrollable content (with 5px threshold for edge cases)
     setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 5);
   }, []);
 
-  // Set up scroll listener and initial visibility checks
+  // Set up scroll listener
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    // Multiple checks to ensure dimensions are calculated correctly
-    // Check immediately
     updateArrowVisibility();
-    
-    // Check after a short delay (ensures DOM is fully laid out)
-    const timeout1 = setTimeout(updateArrowVisibility, 50);
-    
-    // Check after canvases are initialized (300ms delay from canvas init)
-    const timeout2 = setTimeout(updateArrowVisibility, 400);
-    
-    // Check with requestAnimationFrame (ensures after render)
-    const rafId = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        updateArrowVisibility();
-      });
-    });
-
-    // Listen to scroll events
     container.addEventListener("scroll", updateArrowVisibility);
-
-    // Also check on resize
-    const handleResize = () => {
-      setTimeout(updateArrowVisibility, 100);
-    };
-    window.addEventListener("resize", handleResize);
-
-    // Periodic check to catch any layout changes
-    const intervalId = setInterval(() => {
-      if (container.scrollWidth > container.clientWidth) {
-        updateArrowVisibility();
-      }
-    }, 500);
+    window.addEventListener("resize", updateArrowVisibility);
 
     return () => {
-      clearTimeout(timeout1);
-      clearTimeout(timeout2);
-      cancelAnimationFrame(rafId);
-      clearInterval(intervalId);
       container.removeEventListener("scroll", updateArrowVisibility);
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("resize", updateArrowVisibility);
     };
   }, [updateArrowVisibility]);
 
@@ -268,7 +156,6 @@ const DesignPlacementSlider = ({
           imageSmoothing: true,
           imageSmoothingQuality: "high",
         }).then((img) => {
-          // Scale image to fit canvas
           const scale = Math.min(
             (CANVAS_W * 0.99) / img.width,
             (CANVAS_H * 0.99) / img.height
@@ -288,13 +175,12 @@ const DesignPlacementSlider = ({
             dirty: true,
           });
 
-          // Apply tint color filter to shirt with reduced alpha to preserve details
-          // Using alpha 0.6-0.7 preserves foldings, shadows, and other details
+          // Apply tint color
           img.filters = [
             new filters.BlendColor({
               color: tintColor,
               mode: "tint",
-              alpha: 0.65, // Reduced from 1 to preserve details
+              alpha: 0.65,
             }),
           ];
           img.dirty = true;
@@ -304,23 +190,16 @@ const DesignPlacementSlider = ({
           canvas.add(img);
           canvas.renderAll();
 
-          // Add logo if already uploaded (wait a bit to ensure canvas is fully rendered)
-          if (uploadedImageUrl) {
+          // Place logo if already uploaded
+          if (imageUrl) {
             setTimeout(() => {
-              placeLogoOnCanvas(idx, uploadedImageUrl, placement, null);
+              placeLogoOnCanvas(idx, imageUrl, placement);
             }, 50);
           }
         });
       });
 
-      // Update arrow visibility after canvases are initialized
-      // Multiple checks to ensure it updates correctly
-      setTimeout(() => {
-        updateArrowVisibility();
-      }, 300);
-      setTimeout(() => {
-        updateArrowVisibility();
-      }, 600); // Additional check after canvases are fully rendered
+      setTimeout(updateArrowVisibility, 300);
     });
 
     return () => {
@@ -330,23 +209,19 @@ const DesignPlacementSlider = ({
       baseImagesRef.current = [];
       logoImagesRef.current = [];
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placements, getTshirtSource, updateArrowVisibility]);
+  }, [placements, getTshirtSource, tintColor, updateArrowVisibility]);
 
-  // Update tint color when it changes (synced from DesignViewer via App)
+  // Update tint color when it changes
   useEffect(() => {
     if (!tintColor) return;
-    
-    console.log("DesignPlacementSlider: tintColor changed to", tintColor);
-    
-    // Update all canvas base images with new tint color (preserving details)
+
     baseImagesRef.current.forEach((img, idx) => {
       if (!img) return;
       img.filters = [
         new filters.BlendColor({
           color: tintColor,
           mode: "tint",
-          alpha: 0.65, // Reduced from 1 to preserve details like foldings
+          alpha: 0.65,
         }),
       ];
       img.dirty = true;
@@ -356,81 +231,88 @@ const DesignPlacementSlider = ({
     });
   }, [tintColor]);
 
-  // Update logo when image URL changes
+  // Place logo on canvas
+  const placeLogoOnCanvas = useCallback((idx, url, placement) => {
+    const canvas = fabricCanvasesRef.current[idx];
+    const baseImg = baseImagesRef.current[idx];
+    if (!canvas || !baseImg || !url) return;
+
+    // Remove existing logo
+    const objects = canvas.getObjects();
+    objects.forEach((obj) => {
+      if (obj !== baseImg) {
+        canvas.remove(obj);
+      }
+    });
+    logoImagesRef.current[idx] = null;
+    canvas.requestRenderAll();
+
+    Image.fromURL(url, {
+      crossOrigin: "anonymous",
+      enableRetinaScaling: true,
+      imageSmoothing: true,
+      imageSmoothingQuality: "high",
+    })
+      .then((logo) => {
+        const garmentWidth = Math.abs(baseImg.getScaledWidth());
+        const garmentHeight = Math.abs(baseImg.getScaledHeight());
+        const targetWidth = garmentWidth * placement.scale;
+        const scale = targetWidth / logo.width;
+
+        const offsetX = baseImg.left + placement.position.x * garmentWidth;
+        const offsetY = baseImg.top + placement.position.y * garmentHeight;
+
+        logo.set({
+          originX: "center",
+          originY: "center",
+          left: offsetX,
+          top: offsetY,
+          selectable: false,
+          evented: false,
+          imageSmoothing: true,
+          imageSmoothingQuality: "high",
+          scaleX: scale,
+          scaleY: scale,
+          dirty: true,
+        });
+
+        canvas.add(logo);
+        canvas.bringToFront(logo);
+        logoImagesRef.current[idx] = logo;
+        canvas.requestRenderAll();
+      })
+      .catch((error) => {
+        console.error(`Error loading logo for canvas ${idx}:`, error);
+      });
+  }, []);
+
+  // Update logos when imageUrl changes
   useEffect(() => {
-    const prevUrl = uploadedImageUrlRef.current;
+    if (prevImageUrlRef.current === imageUrl) return;
+    prevImageUrlRef.current = imageUrl;
 
-    // Skip if URL hasn't actually changed
-    if (prevUrl === uploadedImageUrl) {
-      console.log(
-        "DesignPlacementSlider: uploadedImageUrl unchanged, skipping logo placement"
-      );
-      return;
-    }
-
-    // Don't revoke blob URL immediately - wait until new image is successfully loaded
-    // We'll revoke it later in the cleanup or after successful load
-    uploadedImageUrlRef.current = uploadedImageUrl;
-
-    if (uploadedImageUrl) {
-      console.log(
-        "DesignPlacementSlider: uploadedImageUrl changed, attempting to place logos:",
-        uploadedImageUrl
-      );
-      console.log("DesignPlacementSlider: Previous URL was:", prevUrl);
-
-      // Ensure canvases are ready before placing logos
-      // Use retry logic in case canvases are still initializing
-      let attempts = 0;
-      const maxAttempts = 10;
-      const retryDelay = 200;
-
+    if (imageUrl) {
+      // Wait for canvases to be ready
       const placeLogos = () => {
         let allReady = true;
-        const readyCanvases = [];
-
         placements.forEach((placement, idx) => {
           const canvas = fabricCanvasesRef.current[idx];
           const baseImg = baseImagesRef.current[idx];
-
           if (canvas && baseImg) {
-            readyCanvases.push({ idx, placement });
+            placeLogoOnCanvas(idx, imageUrl, placement);
           } else {
             allReady = false;
-            console.log(
-              `DesignPlacementSlider: Canvas ${idx} not ready yet - canvas: ${!!canvas}, baseImg: ${!!baseImg}`
-            );
           }
         });
 
-        if (allReady && readyCanvases.length > 0) {
-          console.log(
-            `DesignPlacementSlider: All ${readyCanvases.length} canvases ready, placing logos`
-          );
-          readyCanvases.forEach(({ idx, placement }) => {
-            placeLogoOnCanvas(idx, uploadedImageUrl, placement, prevUrl);
-          });
-        } else if (attempts < maxAttempts) {
-          attempts++;
-          console.log(
-            `DesignPlacementSlider: Retry attempt ${attempts}/${maxAttempts} in ${retryDelay}ms`
-          );
-          setTimeout(placeLogos, retryDelay);
-        } else {
-          console.warn(
-            "DesignPlacementSlider: Max retry attempts reached, some canvases may not be ready"
-          );
-          // Try to place on ready canvases anyway
-          readyCanvases.forEach(({ idx, placement }) => {
-            placeLogoOnCanvas(idx, uploadedImageUrl, placement, prevUrl);
-          });
+        if (!allReady) {
+          setTimeout(placeLogos, 100);
         }
       };
 
-      // Start with a small delay to let canvases initialize
       setTimeout(placeLogos, 100);
     } else {
-      // Remove logos if image is cleared
+      // Clear all logos
       placements.forEach((_, idx) => {
         const canvas = fabricCanvasesRef.current[idx];
         const baseImg = baseImagesRef.current[idx];
@@ -445,164 +327,70 @@ const DesignPlacementSlider = ({
         canvas.requestRenderAll();
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadedImageUrl]);
+  }, [imageUrl, placements, placeLogoOnCanvas]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (
-        uploadedImageUrlRef.current &&
-        uploadedImageUrlRef.current.startsWith("blob:")
-      ) {
-        try {
-          URL.revokeObjectURL(uploadedImageUrlRef.current);
-        } catch (err) {
-          console.error(err);
-        }
-      }
-    };
-  }, []);
+  // Handle placement selection
+  const handleSelectPlacement = (placementId) => {
+    setSelectedPlacement(placementId);
+    if (onPlacementChange) {
+      const placement = placements.find((p) => p.id === placementId);
+      onPlacementChange(placement);
+    }
+  };
 
-  const placeLogoOnCanvas = useCallback(
-    (idx, imageUrl, placement, prevUrl = null) => {
-      const canvas = fabricCanvasesRef.current[idx];
-      const baseImg = baseImagesRef.current[idx];
-      if (!canvas || !baseImg || !imageUrl) {
-        console.warn(
-          `DesignPlacementSlider: Cannot place logo on canvas ${idx} - canvas: ${!!canvas}, baseImg: ${!!baseImg}, imageUrl: ${!!imageUrl}, placement: ${
-            placement?.id
-          }`
-        );
-        return;
-      }
+  // Scroll handlers
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: -200, behavior: "smooth" });
+    }
+  };
 
-      // Check if we already have the same logo URL - if so, don't re-place it
-      const existingLogo = logoImagesRef.current[idx];
-      if (
-        existingLogo &&
-        existingLogo._element &&
-        existingLogo._element.src === imageUrl
-      ) {
-        console.log(
-          `DesignPlacementSlider: Logo on canvas ${idx} already has the same URL, skipping re-placement`
-        );
-        return;
-      }
-
-      console.log(
-        `DesignPlacementSlider: Placing logo on canvas ${idx} (${placement.label}) with URL:`,
-        imageUrl
-      );
-
-      // Remove existing logo only if URL is different
-      const objects = canvas.getObjects();
-      objects.forEach((obj) => {
-        if (obj !== baseImg) {
-          canvas.remove(obj);
-        }
-      });
-      logoImagesRef.current[idx] = null;
-      canvas.requestRenderAll();
-
-      // Track if this is a blob URL and what the previous blob URL was
-      const isBlobUrl = imageUrl.startsWith("blob:");
-      const prevBlobUrl =
-        prevUrl && prevUrl.startsWith("blob:") ? prevUrl : null;
-
-      Image.fromURL(imageUrl, {
-        crossOrigin: "anonymous",
-        enableRetinaScaling: true,
-        imageSmoothing: true,
-        imageSmoothingQuality: "high",
-      })
-        .then((logo) => {
-          // Calculate position and scale
-          const garmentWidth = Math.abs(baseImg.getScaledWidth());
-          const garmentHeight = Math.abs(baseImg.getScaledHeight());
-          const targetWidth = garmentWidth * placement.scale;
-          const scale = targetWidth / logo.width;
-
-          // Calculate position based on placement config (relative to garment size)
-          const offsetX = baseImg.left + placement.position.x * garmentWidth;
-          const offsetY = baseImg.top + placement.position.y * garmentHeight;
-
-          logo.set({
-            originX: "center",
-            originY: "center",
-            left: offsetX,
-            top: offsetY,
-            selectable: false,
-            evented: false,
-            imageSmoothing: true,
-            imageSmoothingQuality: "high",
-            scaleX: scale,
-            scaleY: scale,
-            dirty: true,
-          });
-
-          canvas.add(logo);
-          canvas.bringToFront(logo);
-          logoImagesRef.current[idx] = logo;
-          canvas.requestRenderAll();
-
-          console.log(
-            `DesignPlacementSlider: Logo successfully placed on canvas ${idx} (${placement.label})`
-          );
-
-          // If we successfully loaded a new URL (not blob), we can now revoke the previous blob URL
-          if (!isBlobUrl && prevBlobUrl && prevBlobUrl !== imageUrl) {
-            try {
-              URL.revokeObjectURL(prevBlobUrl);
-              console.log(
-                `DesignPlacementSlider: Revoked previous blob URL after successful load`
-              );
-            } catch (err) {
-              console.error("Error revoking blob URL:", err);
-            }
-          }
-        })
-        .catch((error) => {
-          console.error(
-            `DesignPlacementSlider: Error loading logo for canvas ${idx}:`,
-            error
-          );
-
-          // If loading server URL fails and we have a blob URL, keep using the blob URL
-          if (!isBlobUrl && prevBlobUrl && prevBlobUrl !== imageUrl) {
-            console.warn(
-              `DesignPlacementSlider: Server URL failed (CORS?), keeping blob URL for canvas ${idx}`
-            );
-            // Don't update to failed URL - keep the working blob URL
-            return;
-          }
-
-          console.warn(
-            `DesignPlacementSlider: Failed to load logo from ${imageUrl}, canvas ${idx} will remain without logo`
-          );
-        });
-    },
-    []
-  );
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: 200, behavior: "smooth" });
+    }
+  };
 
   return (
-    <div className="bg-white Slider-Box">
-      <div className="text-start space-y-2 my-2">
-        <h2
-          className="font-bold text-black"
-          style={{
-            fontSize: 16,
-          }}
-        >
-          Step 2: Set Design Size
+    <div className="design-placement-slider bg-white">
+      <div className="text-start space-y-2 mb-4">
+        <h2 className="font-bold text-black text-base">
+          Design Placement Preview
         </h2>
+        <p className="text-xs text-gray-600">
+          See how your design looks in different positions
+        </p>
       </div>
 
       <div className="relative">
+        {/* Left scroll arrow */}
+        {showLeftArrow && (
+          <button
+            type="button"
+            onClick={scrollLeft}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-gray-200 rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors"
+            style={{ marginLeft: -4 }}
+          >
+            <svg
+              className="w-4 h-4 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+        )}
+
         {/* Horizontal scrollable container */}
         <div
           ref={scrollContainerRef}
-          className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide"
+          className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide px-1"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
@@ -611,24 +399,22 @@ const DesignPlacementSlider = ({
           {placements.map((placement, index) => (
             <div
               key={placement.id}
-              className={`flex-shrink-0 cursor-pointer transition-all duration-200 ${
-                selectedPlacement === placement.id ? "" : ""
-              }`}
-              onClick={() => setSelectedPlacement(placement.id)}
+              className="flex-shrink-0 cursor-pointer transition-all duration-200"
+              onClick={() => handleSelectPlacement(placement.id)}
             >
               <div
-                className={`relative bg-white rounded-lg p-3 border-2 ${
+                className={`relative bg-white rounded-lg p-2 border-2 transition-all duration-200 ${
                   selectedPlacement === placement.id
                     ? "border-blue-600 shadow-lg"
-                    : "border-gray-300"
-                } transition-all duration-200`}
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
               >
-                {/* Checkmark icon for selected */}
+                {/* Checkmark for selected */}
                 {selectedPlacement === placement.id && (
-                  <div className="absolute top-2 right-2 z-10">
-                    <div className="bg-blue-600 rounded-full p-1">
+                  <div className="absolute top-1 right-1 z-10">
+                    <div className="bg-blue-600 rounded-full p-0.5">
                       <svg
-                        className="w-4 h-4 text-white"
+                        className="w-3 h-3 text-white"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -644,21 +430,20 @@ const DesignPlacementSlider = ({
                   </div>
                 )}
 
-                {/* Canvas container */}
-                <div className="flex items-center justify-center mb-2">
+                {/* Canvas */}
+                <div className="flex items-center justify-center">
                   <canvas
                     ref={(el) => (canvasRefs.current[index] = el)}
                     style={{
                       display: "block",
                       imageRendering: "crisp-edges",
-                      WebkitImageRendering: "crisp-edges",
                     }}
                   />
                 </div>
 
                 {/* Label */}
-                <div className="text-center">
-                  <p className="text-sm font-medium text-gray-700">
+                <div className="text-center mt-1">
+                  <p className="text-xs font-medium text-gray-700">
                     {placement.label}
                   </p>
                 </div>
@@ -667,88 +452,32 @@ const DesignPlacementSlider = ({
           ))}
         </div>
 
-        {/* Scroll indicator arrows */}
-        {placements.length > 4 && (
-          <>
-            {/* Left scroll arrow */}
-            {showLeftArrow && (
-              <div
-                className="absolute left-0 top-1/2 -translate-y-1/2 cursor-pointer z-10"
-                style={{
-                  background:
-                    "linear-gradient(to left, transparent, rgba(255,255,255,0.9))",
-                  width: "60px",
-                  height: "100%",
-                }}
-                onClick={() => {
-                  if (scrollContainerRef.current) {
-                    scrollContainerRef.current.scrollBy({
-                      left: -200,
-                      behavior: "smooth",
-                    });
-                  }
-                }}
-              >
-                <div className="absolute left-2 top-1/2 -translate-y-1/2">
-                  <svg
-                    className="w-6 h-6 text-gray-600 hover:text-gray-900 transition-colors"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
-                </div>
-              </div>
-            )}
-
-            {/* Right scroll arrow */}
-            {(showRightArrow || isScrollable) && (
-              <div
-                className="absolute right-0 top-1/2 -translate-y-1/2 cursor-pointer z-10"
-                style={{
-                  background:
-                    "linear-gradient(to right, transparent, rgba(255,255,255,0.9))",
-                  width: "60px",
-                  height: "100%",
-                }}
-                onClick={() => {
-                  if (scrollContainerRef.current) {
-                    scrollContainerRef.current.scrollBy({
-                      left: 200,
-                      behavior: "smooth",
-                    });
-                  }
-                }}
-              >
-                <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                  <svg
-                    className="w-6 h-6 text-gray-600 hover:text-gray-900 transition-colors"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </div>
-              </div>
-            )}
-          
-          </>
+        {/* Right scroll arrow */}
+        {showRightArrow && (
+          <button
+            type="button"
+            onClick={scrollRight}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-gray-200 rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors"
+            style={{ marginRight: -4 }}
+          >
+            <svg
+              className="w-4 h-4 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </button>
         )}
       </div>
 
-      {/* Hide scrollbar for webkit browsers */}
+      {/* Hide scrollbar */}
       <style>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;

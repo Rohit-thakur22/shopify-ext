@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  important: "#cloth-editor-app",
   content: [
     './index.html',
     './src/**/*.{js,jsx,ts,tsx}',
