@@ -46,7 +46,7 @@ const UploadLoader = ({ progress = 0, message, onStop }) => {
         <button
           type="button"
           onClick={onStop}
-          className="mt-5 text-sm font-medium text-blue-600 hover:text-blue-700 underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+          className="mt-5 px-5 py-2 text-sm font-semibold text-white rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 shadow-md hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
         >
           Stop
         </button>
