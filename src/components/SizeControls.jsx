@@ -12,6 +12,7 @@ function clamp(v) {
 const SizeControls = ({ width, height, setWidth, setHeight, predefinedSizes = [], disabled = false }) => {
   const aspectRatio = width > 0 ? height / width : 1;
   const hasPredefined = Array.isArray(predefinedSizes) && predefinedSizes.length > 0;
+  const widthHeightReadOnly = hasPredefined; // When predefined sizes exist, width/height are chosen via buttons only
 
   const selectPredefined = (w, h) => {
     if (disabled) return;
@@ -148,7 +149,7 @@ const SizeControls = ({ width, height, setWidth, setHeight, predefinedSizes = []
             Width (inches)
           </label>
           <div className="size-controls-stepper flex items-center gap-2">
-            <button type="button" disabled={disabled} onClick={decrementWidth} className="size-controls-btn" aria-label="Decrease width">−</button>
+            <button type="button" disabled={disabled || widthHeightReadOnly} onClick={decrementWidth} className="size-controls-btn" aria-label="Decrease width">−</button>
             <input
               type="number"
               value={width}
@@ -157,9 +158,10 @@ const SizeControls = ({ width, height, setWidth, setHeight, predefinedSizes = []
               min={MIN_SIZE}
               max={MAX_SIZE}
               disabled={disabled}
+              readOnly={widthHeightReadOnly}
               className="size-controls-input"
             />
-            <button type="button" disabled={disabled} onClick={incrementWidth} className="size-controls-btn" aria-label="Increase width">+</button>
+            <button type="button" disabled={disabled || widthHeightReadOnly} onClick={incrementWidth} className="size-controls-btn" aria-label="Increase width">+</button>
           </div>
         </div>
 
@@ -169,7 +171,7 @@ const SizeControls = ({ width, height, setWidth, setHeight, predefinedSizes = []
             Height (inches)
           </label>
           <div className="size-controls-stepper flex items-center gap-2">
-            <button type="button" disabled={disabled} onClick={decrementHeight} className="size-controls-btn" aria-label="Decrease height">−</button>
+            <button type="button" disabled={disabled || widthHeightReadOnly} onClick={decrementHeight} className="size-controls-btn" aria-label="Decrease height">−</button>
             <input
               type="number"
               value={height}
@@ -178,9 +180,10 @@ const SizeControls = ({ width, height, setWidth, setHeight, predefinedSizes = []
               min={MIN_SIZE}
               max={MAX_SIZE}
               disabled={disabled}
+              readOnly={widthHeightReadOnly}
               className="size-controls-input"
             />
-            <button type="button" disabled={disabled} onClick={incrementHeight} className="size-controls-btn" aria-label="Increase height">+</button>
+            <button type="button" disabled={disabled || widthHeightReadOnly} onClick={incrementHeight} className="size-controls-btn" aria-label="Increase height">+</button>
           </div>
         </div>
       </div>

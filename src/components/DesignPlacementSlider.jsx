@@ -41,11 +41,11 @@ const DesignPlacementSlider = ({
   // Uses Shopify CDN URLs if available, fallback to local assets
   const getTshirtSource = useCallback((view) => {
     const viewMap = {
-      front: assetUrls.front || "/assets/front-shirt.png",
-      back: assetUrls.back || "/assets/back-shirt.png",
-      side: assetUrls.side || "/assets/left-side-shirt.png",
+      front: assetUrls.front || "/assets/preview-cloths/full-front.png",
+      back: assetUrls.back || "/assets/preview-cloths/full-back.png",
+      side: assetUrls.side || "/assets/preview-cloths/sleeve.png",
     };
-    return viewMap[view] || assetUrls.tshirt || "/assets/tshirt.png";
+    return viewMap[view] || assetUrls.tshirt || "/assets/preview-cloths/custom.png";
   }, [assetUrls]);
 
   // Placement configurations
@@ -55,47 +55,56 @@ const DesignPlacementSlider = ({
         id: "custom",
         label: "Custom",
         view: "front",
-        position: { x: 0, y: -0.05 },
+        position: { x: 0, y: 0.02 },
         scale: 0.25,
       },
       {
         id: "full-front",
         label: "Full Front",
         view: "front",
-        position: { x: 0, y: -0.15 },
-        scale: 0.35,
+        position: { x: 0, y: -0.03 },
+        scale: 0.25,
       },
       {
         id: "full-back",
         label: "Full Back",
         view: "back",
-        position: { x: 0, y: -0.15 },
-        scale: 0.35,
+        position: { x: 0, y: -0.03 },
+        scale: 0.25,
       },
       {
         id: "left-chest",
         label: "Left Chest",
         view: "front",
-        position: { x: 0.12, y: -0.22 },
-        scale: 0.18,
+        position: { x: 0.10, y: -0.18 },
+        scale: 0.14,
       },
       {
         id: "sleeve",
         label: "Sleeve",
         view: "side",
-        position: { x: 0.09, y: -0.19 },
-        scale: 0.22,
+        position: { x: 0.01, y: -0.2 },
+        scale: 0.10,
       },
       {
         id: "back-collar",
         label: "Back Collar",
         view: "back",
-        position: { x: 0, y: -0.28 },
-        scale: 0.2,
+        position: { x: 0, y: -0.30 },
+        scale: 0.10,
       },
     ],
     []
   );
+
+  const buildFabricFilters = useCallback((color) => {
+    return [
+      new filters.BlendColor({ color, mode: "multiply", alpha: 0.85 }),
+      new filters.Brightness({ brightness: 0.03 }),
+      new filters.Blur({ blur: 0.016 }),
+      new filters.Contrast({ contrast: 0.02 }),
+    ];
+  }, []);
 
   // Update arrow visibility based on scroll position
   const updateArrowVisibility = useCallback(() => {
@@ -156,10 +165,12 @@ const DesignPlacementSlider = ({
           imageSmoothing: true,
           imageSmoothingQuality: "high",
         }).then((img) => {
-          const scale = Math.min(
-            (CANVAS_W * 0.99) / img.width,
-            (CANVAS_H * 0.99) / img.height
-          );
+          const FABRIC_SCALE_BOOST = 1.04;
+          const scale =
+            Math.min(
+              (CANVAS_W * 0.99) / img.width,
+              (CANVAS_H * 0.99) / img.height
+            ) * FABRIC_SCALE_BOOST;
 
           img.set({
             left: CANVAS_W / 2,
@@ -175,14 +186,7 @@ const DesignPlacementSlider = ({
             dirty: true,
           });
 
-          // Apply tint color
-          img.filters = [
-            new filters.BlendColor({
-              color: tintColor,
-              mode: "tint",
-              alpha: 0.65,
-            }),
-          ];
+          img.filters = buildFabricFilters(tintColor);
           img.dirty = true;
           img.applyFilters();
 
@@ -209,7 +213,7 @@ const DesignPlacementSlider = ({
       baseImagesRef.current = [];
       logoImagesRef.current = [];
     };
-  }, [placements, getTshirtSource, tintColor, updateArrowVisibility]);
+  }, [placements, getTshirtSource, tintColor, updateArrowVisibility, buildFabricFilters]);
 
   // Update tint color when it changes
   useEffect(() => {
@@ -217,19 +221,13 @@ const DesignPlacementSlider = ({
 
     baseImagesRef.current.forEach((img, idx) => {
       if (!img) return;
-      img.filters = [
-        new filters.BlendColor({
-          color: tintColor,
-          mode: "tint",
-          alpha: 0.65,
-        }),
-      ];
+      img.filters = buildFabricFilters(tintColor);
       img.dirty = true;
       img.applyFilters();
       const canvas = fabricCanvasesRef.current[idx];
       if (canvas) canvas.renderAll();
     });
-  }, [tintColor]);
+  }, [tintColor, buildFabricFilters]);
 
   // Place logo on canvas
   const placeLogoOnCanvas = useCallback((idx, url, placement) => {

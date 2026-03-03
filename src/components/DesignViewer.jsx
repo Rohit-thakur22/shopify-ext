@@ -12,7 +12,7 @@ import React, {
  * 
  * Props:
  * - imageUrl: The uploaded image URL to display on products
- * - tintColor: The color to tint the garments (optional)
+ * - tintColor: The color to multiply the garments (optional)
  * - onColorChange: Callback when user changes color (optional)
  * - assetUrls: Object containing Shopify CDN URLs for product images
  */
@@ -25,12 +25,12 @@ const DesignViewer = ({
   // Source images - use Shopify CDN URLs if available, fallback to local assets
   const sourceImages = useMemo(() => {
     return [
-      assetUrls.tshirt || "/assets/tshirt.png",
-      assetUrls.hoodie || "/assets/hoodie.png",
-      assetUrls.polo || "/assets/polo.png",
-      assetUrls.cap || "/assets/cap.png",
-      assetUrls.apron || "/assets/apron.png",
-      assetUrls.shorts || "/assets/shorts.png",
+      assetUrls.tshirt || "/assets/6-cloths/full-front.png",
+      assetUrls.hoodie || "/assets/6-cloths/Hoodie_White.png",
+      assetUrls.polo || "/assets/6-cloths/polo-tshirt.png",
+      assetUrls.cap || "/assets/Cap_White.png",
+      assetUrls.apron || "/assets/6-cloths/Apron_White.png",
+      assetUrls.shorts || "/assets/6-cloths/Tote_White.png",
     ];
   }, [assetUrls]);
 
@@ -65,6 +65,25 @@ const DesignViewer = ({
 
   const CANVAS_W = 140;
   const CANVAS_H = 180;
+
+  const alphaMap = {
+    0: 0.9,   // tshirt
+    1: 0.85,  // hoodie
+    2: 0.88,  // polo
+    3: 0.75,  // cap
+    4: 0.8,   // apron
+    5: 0.85,  // tote
+  };
+
+  const buildFabricFilters = useCallback((color, idx) => {
+    const alpha = alphaMap[idx] !== undefined ? alphaMap[idx] : 0.85;
+    return [
+      new filters.BlendColor({ color, mode: "multiply", alpha }),
+      new filters.Brightness({ brightness: 0.03 }),
+      new filters.Blur({ blur: 0.016 }),
+      new filters.Contrast({ contrast: 0.02 }),
+    ];
+  }, []);
 
   const COLOR_SWATCHES = [
     "#ffffff", // White
@@ -121,10 +140,12 @@ const DesignViewer = ({
           imageSmoothing: true,
           imageSmoothingQuality: "high",
         }).then((img) => {
-          const scale = Math.min(
-            (CANVAS_W * 0.99) / img.width,
-            (CANVAS_H * 0.99) / img.height
-          );
+          const FABRIC_SCALE_BOOST = 1.04;
+          const scale =
+            Math.min(
+              (CANVAS_W * 0.99) / img.width,
+              (CANVAS_H * 0.99) / img.height
+            ) * FABRIC_SCALE_BOOST;
 
           img.set({
             left: CANVAS_W / 2,
@@ -140,14 +161,7 @@ const DesignViewer = ({
             dirty: true,
           });
 
-          // Apply initial tint
-          img.filters = [
-            new filters.BlendColor({
-              color: tintColorRef.current,
-              mode: "tint",
-              alpha: 0.65,
-            }),
-          ];
+          img.filters = buildFabricFilters(tintColorRef.current, idx);
           img.dirty = true;
           img.applyFilters();
 
@@ -165,7 +179,7 @@ const DesignViewer = ({
       baseImagesRef.current = [];
       logoImagesRef.current = [];
     };
-  }, [products]);
+  }, [products, buildFabricFilters]);
 
   // Change color handler
   const changeColor = useCallback(
@@ -180,33 +194,29 @@ const DesignViewer = ({
 
       baseImagesRef.current.forEach((img, idx) => {
         if (!img) return;
-        img.filters = [
-          new filters.BlendColor({ color, mode: "tint", alpha: 0.65 }),
-        ];
+        img.filters = buildFabricFilters(color, idx);
         img.dirty = true;
         img.applyFilters();
         const canvas = fabricCanvasesRef.current[idx];
         if (canvas) canvas.renderAll();
       });
     },
-    [propTintColor, onColorChange]
+    [propTintColor, onColorChange, buildFabricFilters]
   );
 
-  // Update tint color when prop changes
+  // Update multiply color when prop changes
   useEffect(() => {
     if (!tintColor) return;
 
     baseImagesRef.current.forEach((img, idx) => {
       if (!img) return;
-      img.filters = [
-        new filters.BlendColor({ color: tintColor, mode: "tint", alpha: 0.65 }),
-      ];
+      img.filters = buildFabricFilters(tintColor, idx);
       img.dirty = true;
       img.applyFilters();
       const canvas = fabricCanvasesRef.current[idx];
       if (canvas) canvas.renderAll();
     });
-  }, [tintColor]);
+  }, [tintColor, buildFabricFilters]);
 
   // Place or replace logo on canvas
   const placeOrReplaceLogoOnCanvas = useCallback((idx, url, requestId) => {
@@ -250,7 +260,7 @@ const DesignViewer = ({
 
       if (isCap) {
         offsetX = 0;
-        offsetY = 0;
+        offsetY = -baseImg.getScaledHeight() * 0.08;
       } else if (isFifth) {
         offsetY = baseImg.getScaledHeight() * 0.05;
       } else if (isLast) {

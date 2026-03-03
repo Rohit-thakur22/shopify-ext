@@ -591,8 +591,8 @@ const ProductCustomizer = ({ variantId, assetUrls = {}, settingsUrl = null, vari
             )}
           </div>
 
-          {/* Right column - Controls and Cart */}
-          <div className="lg:col-span-5"
+          {/* Right column - Controls and Cart (extra bottom padding on mobile for sticky Add to Cart) */}
+          <div className="lg:col-span-5 add-to-cart-mobile-spacer"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -666,8 +666,8 @@ const ProductCustomizer = ({ variantId, assetUrls = {}, settingsUrl = null, vari
               />
             </div>
 
-            {/* Add to Cart */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            {/* Add to Cart — sticky at bottom on small screens */}
+            <div className="add-to-cart-sticky-mobile bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
               <AddToCartButton
                 variantId={variantId}
                 imageUrl={cartImageUrl}

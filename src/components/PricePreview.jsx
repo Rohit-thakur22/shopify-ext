@@ -8,7 +8,7 @@ const formatPrice = (n) =>
   });
 
 // Pricing constants — keep in sync with hq-migration/extensions/cart-pricing (cart transform) for cart/checkout price
-const BASE_PRICE = 9.17;
+
 const PRICE_PER_SQIN = 0.0416; // size-based price: (width * height) * 0.0416
 const PRECUT_FEE = 0.24;
 

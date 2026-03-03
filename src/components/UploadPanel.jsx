@@ -26,7 +26,7 @@ const UploadPanel = ({
     if (loadingRemoveBg || loadingEnhance) setIsHovering(false);
   }, [loadingRemoveBg, loadingEnhance]);
 
-  // Simulate progress 0 → 90 while processing; jump to 100 when done. Single progress value keeps bar and percentage in sync.
+  // Realistic progress 0 → 95% with ease-out (fast start, slow near end); jump to 100% when done. Never sticks at one value.
   useEffect(() => {
     if (!loadingRemoveBg && !loadingEnhance) {
       setProgress((prev) => (prev > 0 ? 100 : 0));
@@ -34,13 +34,17 @@ const UploadPanel = ({
     }
     setProgress(0);
     const start = Date.now();
-    const duration = 4000; // 4s to reach 90%
-    const tickMs = 50; // Update every 50ms so bar and percentage stay in sync
+    const duration = 12000; // 12s to reach 95% — always moving, feels natural
+    const maxProgress = 95;
+    const tickMs = 80;
+    // Ease-out cubic: fast at start, slows as it approaches end (1 - (1-t)^3)
+    const easeOutCubic = (t) => (t >= 1 ? 1 : 1 - Math.pow(1 - t, 3));
     const id = setInterval(() => {
       const elapsed = Date.now() - start;
-      const p = Math.min(90, (elapsed / duration) * 90);
+      const t = Math.min(1, elapsed / duration);
+      const p = maxProgress * easeOutCubic(t);
       setProgress(p);
-      if (p >= 90) clearInterval(id);
+      if (p >= maxProgress) clearInterval(id);
     }, tickMs);
     return () => clearInterval(id);
   }, [loadingRemoveBg, loadingEnhance]);
@@ -99,56 +103,60 @@ const UploadPanel = ({
       </div>
 
       {/* Remove BG Toggle */}
-     {imageUrl && <div 
-        className="flex items-center justify-between p-3 rounded-lg mb-4 border"
-        style={{ backgroundColor: '#f9fafb', borderColor: '#e5e7eb' }}
-      >
-        <div className="flex items-center gap-2">
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            style={{ color: '#9333ea' }}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-          <div>
-            <p className="text-sm font-semibold" style={{ color: '#111827' }}>
-              Remove Background
-            </p>
-            <p className="text-xs" style={{ color: '#4b5563' }}>
-              Automatically remove background from uploaded images
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => onToggleRemoveBg(!removeBgEnabled)}
-          disabled={loadingRemoveBg || loadingEnhance}
-          className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ 
-            backgroundColor: removeBgEnabled ? '#9333ea' : '#d1d5db',
-            outlineColor: '#9333ea'
-          }}
-          role="switch"
-          aria-checked={removeBgEnabled}
-          aria-label="Toggle automatic background removal"
+      {imageUrl && (
+        <div
+          className="flex items-center justify-between p-3 rounded-lg mb-4 border"
+          style={{ backgroundColor: "#f9fafb", borderColor: "#e5e7eb" }}
         >
-          <span
-            className="inline-block h-4 w-4 transform rounded-full transition-transform"
-            style={{ 
-              backgroundColor: '#ffffff',
-              transform: removeBgEnabled ? 'translateX(0.5rem)' : 'translateX(-0.8rem)'
+          <div className="flex items-center gap-2">
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              style={{ color: "#9333ea" }}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "#111827" }}>
+                Remove Background
+              </p>
+              <p className="text-xs" style={{ color: "#4b5563" }}>
+                Automatically remove background from uploaded images
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onToggleRemoveBg(!removeBgEnabled)}
+            disabled={loadingRemoveBg || loadingEnhance}
+            className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: removeBgEnabled ? "#9333ea" : "#d1d5db",
+              outlineColor: "#9333ea",
             }}
-          />
-        </button>
-      </div>}
+            role="switch"
+            aria-checked={removeBgEnabled}
+            aria-label="Toggle automatic background removal"
+          >
+            <span
+              className="inline-block h-4 w-4 transform rounded-full transition-transform"
+              style={{
+                backgroundColor: "#ffffff",
+                transform: removeBgEnabled
+                  ? "translateX(0.5rem)"
+                  : "translateX(-0.8rem)",
+              }}
+            />
+          </button>
+        </div>
+      )}
 
       {imageUrl ? (
         <div className="space-y-4">
@@ -292,27 +300,35 @@ const UploadPanel = ({
               disabled={isAnyLoading}
               className="enhance-button flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200"
               style={{
-                minWidth: '140px',
-                backgroundColor: loadingEnhance ? '#f3f4f6' : '#f59e0b',
-                backgroundImage: loadingEnhance ? 'none' : 'linear-gradient(to right, #f59e0b, #f97316)',
-                color: loadingEnhance ? '#9ca3af' : '#ffffff',
-                cursor: loadingEnhance ? 'wait' : 'pointer',
-                boxShadow: loadingEnhance ? 'none' : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                border: 'none',
-                outline: 'none',
+                minWidth: "140px",
+                backgroundColor: loadingEnhance ? "#f3f4f6" : "#f59e0b",
+                backgroundImage: loadingEnhance
+                  ? "none"
+                  : "linear-gradient(to right, #f59e0b, #f97316)",
+                color: loadingEnhance ? "#9ca3af" : "#ffffff",
+                cursor: loadingEnhance ? "wait" : "pointer",
+                boxShadow: loadingEnhance
+                  ? "none"
+                  : "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                border: "none",
+                outline: "none",
               }}
               onMouseEnter={(e) => {
                 if (!loadingEnhance && !isAnyLoading) {
-                  e.currentTarget.style.backgroundColor = '#d97706';
-                  e.currentTarget.style.backgroundImage = 'linear-gradient(to right, #d97706, #ea580c)';
-                  e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
+                  e.currentTarget.style.backgroundColor = "#d97706";
+                  e.currentTarget.style.backgroundImage =
+                    "linear-gradient(to right, #d97706, #ea580c)";
+                  e.currentTarget.style.boxShadow =
+                    "0 10px 15px -3px rgba(0, 0, 0, 0.1)";
                 }
               }}
               onMouseLeave={(e) => {
                 if (!loadingEnhance && !isAnyLoading) {
-                  e.currentTarget.style.backgroundColor = '#f59e0b';
-                  e.currentTarget.style.backgroundImage = 'linear-gradient(to right, #f59e0b, #f97316)';
-                  e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
+                  e.currentTarget.style.backgroundColor = "#f59e0b";
+                  e.currentTarget.style.backgroundImage =
+                    "linear-gradient(to right, #f59e0b, #f97316)";
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 6px -1px rgba(0, 0, 0, 0.1)";
                 }
               }}
             >
@@ -363,20 +379,20 @@ const UploadPanel = ({
               disabled={isAnyLoading}
               className="flex-1 px-4 py-2 text-sm rounded-lg transition-colors"
               style={{
-                color: '#374151',
-                border: '1px solid #d1d5db',
-                backgroundColor: '#ffffff',
+                color: "#374151",
+                border: "1px solid #d1d5db",
+                backgroundColor: "#ffffff",
                 opacity: isAnyLoading ? 0.5 : 1,
-                cursor: isAnyLoading ? 'not-allowed' : 'pointer',
+                cursor: isAnyLoading ? "not-allowed" : "pointer",
               }}
               onMouseEnter={(e) => {
                 if (!isAnyLoading) {
-                  e.currentTarget.style.backgroundColor = '#f9fafb';
+                  e.currentTarget.style.backgroundColor = "#f9fafb";
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isAnyLoading) {
-                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.backgroundColor = "#ffffff";
                 }
               }}
             >
@@ -389,20 +405,20 @@ const UploadPanel = ({
                 disabled={isAnyLoading}
                 className="px-4 py-2 text-sm rounded-lg transition-colors"
                 style={{
-                  color: '#dc2626',
-                  border: '1px solid #fecaca',
-                  backgroundColor: '#ffffff',
+                  color: "#dc2626",
+                  border: "1px solid #fecaca",
+                  backgroundColor: "#ffffff",
                   opacity: isAnyLoading ? 0.5 : 1,
-                  cursor: isAnyLoading ? 'not-allowed' : 'pointer',
+                  cursor: isAnyLoading ? "not-allowed" : "pointer",
                 }}
                 onMouseEnter={(e) => {
                   if (!isAnyLoading) {
-                    e.currentTarget.style.backgroundColor = '#fef2f2';
+                    e.currentTarget.style.backgroundColor = "#fef2f2";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isAnyLoading) {
-                    e.currentTarget.style.backgroundColor = '#ffffff';
+                    e.currentTarget.style.backgroundColor = "#ffffff";
                   }
                 }}
               >
@@ -461,7 +477,6 @@ const UploadPanel = ({
         onChange={handleFileChange}
         className="hidden"
       />
-
     </div>
   );
 };
