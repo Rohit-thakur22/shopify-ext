@@ -9,7 +9,7 @@ import { Canvas, Image, filters } from "fabric";
 
 /**
  * DesignPlacementSlider - Shows design placement options on different garment views
- * 
+ *
  * Props:
  * - imageUrl: The uploaded/processed image URL to display
  * - tintColor: The color to tint the garments
@@ -39,14 +39,19 @@ const DesignPlacementSlider = ({
 
   // Get t-shirt image source based on view type
   // Uses Shopify CDN URLs if available, fallback to local assets
-  const getTshirtSource = useCallback((view) => {
-    const viewMap = {
-      front: assetUrls.front || "/assets/preview-cloths/full-front.png",
-      back: assetUrls.back || "/assets/preview-cloths/full-back.png",
-      side: assetUrls.side || "/assets/preview-cloths/sleeve.png",
-    };
-    return viewMap[view] || assetUrls.tshirt || "/assets/preview-cloths/custom.png";
-  }, [assetUrls]);
+  const getTshirtSource = useCallback(
+    (view) => {
+      const viewMap = {
+        front: assetUrls.front || "/assets/preview-cloths/full-front.webp",
+        back: assetUrls.back || "/assets/preview-cloths/full-back.png",
+        side: assetUrls.side || "/assets/preview-cloths/sleeve-1.webp",
+      };
+      return (
+        viewMap[view] || assetUrls.tshirt || "/assets/preview-cloths/custom.png"
+      );
+    },
+    [assetUrls],
+  );
 
   // Placement configurations
   const placements = useMemo(
@@ -76,7 +81,7 @@ const DesignPlacementSlider = ({
         id: "left-chest",
         label: "Left Chest",
         view: "front",
-        position: { x: 0.10, y: -0.18 },
+        position: { x: 0.1, y: -0.18 },
         scale: 0.14,
       },
       {
@@ -84,17 +89,17 @@ const DesignPlacementSlider = ({
         label: "Sleeve",
         view: "side",
         position: { x: 0.01, y: -0.2 },
-        scale: 0.10,
+        scale: 0.1,
       },
       {
         id: "back-collar",
         label: "Back Collar",
         view: "back",
-        position: { x: 0, y: -0.30 },
-        scale: 0.10,
+        position: { x: 0, y: -0.3 },
+        scale: 0.1,
       },
     ],
-    []
+    [],
   );
 
   const buildFabricFilters = useCallback((color) => {
@@ -169,7 +174,7 @@ const DesignPlacementSlider = ({
           const scale =
             Math.min(
               (CANVAS_W * 0.99) / img.width,
-              (CANVAS_H * 0.99) / img.height
+              (CANVAS_H * 0.99) / img.height,
             ) * FABRIC_SCALE_BOOST;
 
           img.set({
@@ -213,7 +218,13 @@ const DesignPlacementSlider = ({
       baseImagesRef.current = [];
       logoImagesRef.current = [];
     };
-  }, [placements, getTshirtSource, tintColor, updateArrowVisibility, buildFabricFilters]);
+  }, [
+    placements,
+    getTshirtSource,
+    tintColor,
+    updateArrowVisibility,
+    buildFabricFilters,
+  ]);
 
   // Update tint color when it changes
   useEffect(() => {

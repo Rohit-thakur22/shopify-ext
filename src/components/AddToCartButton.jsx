@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 
 const AddToCartButton = ({
-  variantId,
+  cartUrl = "/apps/customscale-app/cart-add",
+  productId = "",
+  productTitle = "",
   imageUrl,
   width,
   height,
@@ -13,54 +15,72 @@ const AddToCartButton = ({
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  // Cart must only receive a server URL (never blob); parent passes the URL that matches current preview
+  // Only send server URLs to cart — never blob: URLs
   const isServerUrl =
     imageUrl && typeof imageUrl === "string" && !imageUrl.startsWith("blob:");
-  const isValid = isServerUrl && width > 0 && height > 0 && variantId;
+  const isValid    = width > 0 && height > 0;
   const urlForCart = isServerUrl ? imageUrl : null;
 
   const addToCart = async () => {
-    if (!isValid || isLoading) return;
-    if (!urlForCart) return; // never send blob or empty
+    if (!isValid || isLoading || disabled) return;
 
     setIsLoading(true);
     setError(null);
     setSuccess(false);
+
     try {
-      const response = await fetch("/cart/add.js", {
+      // ── Step 1: ask the server to calculate price + get dynamic variant ID ──
+      const pricingRes = await fetch(cartUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
         body: JSON.stringify({
-          id: variantId,
-          quantity: quantity,
-          properties: {
-            _Area_x: width.toFixed(2),
-            _Area_y: height.toFixed(2),
-            _PreCut: preCut ? "Yes" : "No",
-            CustomImage: urlForCart,
-          },
+          width,
+          height,
+          preCut,
+          quantity,
+          customImage: urlForCart || "",
+          productId: productId || "",
+          productTitle: productTitle || "",
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.description || "Failed to add to cart");
+      if (!pricingRes.ok) {
+        const errData = await pricingRes.json().catch(() => ({}));
+        throw new Error(errData.error || "Pricing service unavailable");
       }
 
-      const data = await response.json();
-      console.log("Added to cart:", data);
+      const { variantId, properties } = await pricingRes.json();
+      console.log("[AddToCart] Dynamic variant:", variantId, "price:", properties?.UnitPrice);
+
+      // ── Step 2: add the dynamic variant to Shopify cart via AJAX Cart API ──
+      const cartRes = await fetch("/cart/add.js", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          items: [{ id: variantId, quantity, properties }],
+        }),
+      });
+
+      if (!cartRes.ok) {
+        const errData = await cartRes.json().catch(() => ({}));
+        throw new Error(errData.description || "Failed to add to cart");
+      }
+
+      const cartData = await cartRes.json();
+      console.log("[AddToCart] Added to cart:", cartData);
 
       setSuccess(true);
-
-      // Redirect to cart after short delay to show success state
       setTimeout(() => {
         window.location.href = "/cart";
       }, 500);
     } catch (err) {
-      console.error("Add to cart failed:", err);
+      console.error("[AddToCart] Failed:", err);
       setError(err.message || "Failed to add to cart. Please try again.");
     } finally {
       setIsLoading(false);
@@ -70,20 +90,12 @@ const AddToCartButton = ({
   const getButtonText = () => {
     if (isLoading) return "Adding...";
     if (success) return "Added! Redirecting...";
-    // if (!imageUrl) return "Upload an image first";
-    // if (!isServerUrl) return "Process image to add to cart";
-    // if (width <= 0 || height <= 0) return "Set dimensions";
     return "Add to Cart";
   };
 
   const getButtonStyle = () => {
-    if (success) {
-      return "bg-green-600 hover:bg-green-600";
-    }
-    // if (!isValid || disabled) {
-    //   return "bg-gray-400 cursor-not-allowed";
-    // }
-    return "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700";
+    if (success) return "btn-success";
+    return "btn-normal";
   };
 
   return (
@@ -92,12 +104,13 @@ const AddToCartButton = ({
         type="button"
         onClick={addToCart}
         // disabled={!isValid || isLoading || disabled}
-        className={`w-full py-3 px-6 rounded-lg text-white font-semibold text-base shadow-lg transition-all duration-200 flex items-center justify-center gap-2 ${getButtonStyle()}`}
-        style={{
-          background: "#4c4cec",
-          borderRadius: "15px",
-        }}
+        className={`add-to-cart-btn w-full py-4 px-8 rounded-2xl font-extrabold text-xl tracking-wide transition-all duration-200 flex items-center justify-center gap-3 relative overflow-hidden group ${getButtonStyle()}`}
       >
+        {/* Animated shine effect on hover */}
+        <div className="absolute top-0 left-[-100%] w-1/2 h-full bg-gradient-to-r from-transparent via-white/30 to-transparent group-hover:translate-x-[400%] transition-transform duration-[1200ms] ease-in-out skew-x-12 z-0"></div>
+        
+        {/* Button content layer to sit above the shine */}
+        <div className="relative z-10 flex items-center justify-center gap-3">
         {isLoading ? (
           <svg
             className="animate-spin h-5 w-5 text-white"
@@ -149,6 +162,7 @@ const AddToCartButton = ({
           </svg>
         )}
         <span>{getButtonText()}</span>
+        </div>
       </button>
 
       {error && (
@@ -173,9 +187,9 @@ const AddToCartButton = ({
       )}
 
       {/* Order summary */}
-      {isValid && (
-        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-          <h4 className="text-xs font-medium text-gray-700 mb-2">
+      {width > 0 && height > 0 && (
+        <div className="mt-5 p-4 bg-gray-50/80 border border-gray-100 rounded-xl shadow-inner">
+          <h4 className="text-sm font-semibold text-gray-800 mb-3">
             Order Summary
           </h4>
           <div className="space-y-1 text-xs text-gray-600">

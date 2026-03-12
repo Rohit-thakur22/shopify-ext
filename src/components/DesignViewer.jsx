@@ -23,16 +23,17 @@ const DesignViewer = ({
   assetUrls = {},
 }) => {
   // Source images - use Shopify CDN URLs if available, fallback to local assets
+  const CDN = "https://shopify-ext.vercel.app";
   const sourceImages = useMemo(() => {
     return [
-      assetUrls.tshirt || "/assets/6-cloths/full-front.png",
-      assetUrls.hoodie || "/assets/6-cloths/Hoodie_White.png",
-      assetUrls.polo || "/assets/6-cloths/polo-tshirt.png",
-      assetUrls.cap || "/assets/Cap_White.png",
-      assetUrls.apron || "/assets/6-cloths/Apron_White.png",
-      assetUrls.shorts || "/assets/6-cloths/Tote_White.png",
+      `${CDN}/assets/6-cloths/full-front.webp`,
+      `${CDN}/assets/6-cloths/Hoodie_White.png`,
+      `${CDN}/assets/6-cloths/polo-tshirt.png`,
+      `${CDN}/assets/6-cloths/Cap_White.png`,
+      `${CDN}/assets/6-cloths/Apron_White.png`,
+      `${CDN}/assets/6-cloths/Tote_White.png`,
     ];
-  }, [assetUrls]);
+  }, []);
 
   const sizes = useMemo(
     () => [
@@ -357,7 +358,7 @@ const DesignViewer = ({
             {products.map((product, index) => (
               <div
                 key={index}
-                className="group flex bg-white pt-3 flex-col items-center transform transition-all duration-200 ease-in-out hover:scale-150"
+                className="group flex bg-white pt-3 flex-col items-center transform transition-all duration-200 ease-in-out hover:scale-200"
                 style={{
                   willChange: "transform",
                   backfaceVisibility: "hidden",

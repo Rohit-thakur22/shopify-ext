@@ -12,9 +12,12 @@
   },
   "dependencies": {
     "fabric": "^6.7.1",
+    "konva": "^10.2.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-image-crop": "^11.0.10"
+    "react-image-crop": "^11.0.10",
+    "react-konva": "^19.2.3",
+    "use-image": "^1.1.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

@@ -103,19 +103,19 @@ const SizeControls = ({ width, height, setWidth, setHeight, predefinedSizes = []
 
   return (
     <div className={`size-controls bg-white rounded-lg ${disabled ? "pointer-events-none opacity-60 cursor-not-allowed" : ""}`} aria-disabled={disabled}>
-      <div className="text-start space-y-2 mb-4">
-        <h2 className="font-bold text-black text-base">
-          Step 3: Set Design Size
+      <div className="text-start space-y-1 mb-5">
+        <h2 className="text-lg font-bold tracking-tight text-gray-900">
+          Step 2: Set Design Size
         </h2>
-        <p className="text-xs text-gray-600">
+        <p className="text-sm text-gray-500">
           Specify the dimensions for your custom design
         </p>
       </div>
 
       {hasPredefined && (
-        <div className="space-y-2 mb-4">
-          <label className="text-sm font-medium text-gray-700 block">Choose Size:</label>
-          <div className="flex flex-wrap gap-2">
+        <div className="space-y-3 mb-6">
+          <label className="text-sm font-semibold text-gray-800 block">Choose Size:</label>
+          <div className="flex flex-wrap gap-2.5">
             {predefinedSizes.map((s, i) => {
               const w = Number(s.width);
               const h = Number(s.height);
@@ -128,10 +128,10 @@ const SizeControls = ({ width, height, setWidth, setHeight, predefinedSizes = []
                   type="button"
                   disabled={disabled}
                   onClick={() => selectPredefined(w, h)}
-                  className={`px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
+                  className={`px-4 py-2 text-sm font-semibold rounded-xl border transition-all duration-300 shadow-sm ${
                     isSelected
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                      ? "border-transparent bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-md transform scale-105"
+                      : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-md"
                   }`}
                 >
                   {label}
@@ -142,10 +142,10 @@ const SizeControls = ({ width, height, setWidth, setHeight, predefinedSizes = []
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:gap-6">
         {/* Width Control */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-semibold text-gray-800">
             Width (inches)
           </label>
           <div className="size-controls-stepper flex items-center gap-2">
@@ -167,7 +167,7 @@ const SizeControls = ({ width, height, setWidth, setHeight, predefinedSizes = []
 
         {/* Height Control */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-semibold text-gray-800">
             Height (inches)
           </label>
           <div className="size-controls-stepper flex items-center gap-2">
@@ -189,9 +189,14 @@ const SizeControls = ({ width, height, setWidth, setHeight, predefinedSizes = []
       </div>
 
       {/* Size info */}
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-        <p className="text-xs text-gray-600">
-          <span className="font-medium">Area:</span>{" "}
+      <div className="mt-8 p-2 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 flex items-center justify-between shadow-sm">
+        <p className="text-sm text-gray-600 flex items-center gap-2">
+          <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+          <span className="font-semibold text-gray-800">Total Print Area:</span>
+        </p>
+        <p className="text-sm font-bold text-indigo-700 bg-indigo-50/80 px-4 py-1.5 rounded-lg border border-indigo-100/50 shadow-inner">
           {(width * height).toFixed(2)} sq. inches
         </p>
       </div>
