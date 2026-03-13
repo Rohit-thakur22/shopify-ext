@@ -39,7 +39,7 @@ const POLO_OFFSET_Y = -0.16; // top
 // #333
 
 /** Tint layer opacity: lower = more garment detail (folds, shading) visible; higher = stronger flat color */
-const TINT_OPACITY = 0.8;
+const TINT_OPACITY = 0.9;
 
 /**
  * Fixed design area per product (fraction of garment width/height).
@@ -47,12 +47,12 @@ const TINT_OPACITY = 0.8;
  * Order: tshirt, hoodie, polo, cap, apron, tote
  */
 const FIXED_DESIGN_AREAS = [
-  { maxWidth: 0.3, maxHeight: 0.4 }, // tshirt
-  { maxWidth: 0.4, maxHeight: 0.45 }, // hoodie
-  { maxWidth: 0.2, maxHeight: 0.2 }, // polo (small chest area)
-  { maxWidth: 0.35, maxHeight: 0.25 }, // cap
-  { maxWidth: 0.4, maxHeight: 0.3 }, // apron
-  { maxWidth: 0.45, maxHeight: 0.4 }, // tote
+  { maxWidth: 0.28, maxHeight: 0.31 }, // tshirt
+  { maxWidth: 0.32, maxHeight: 0.35 }, // hoodie
+  { maxWidth: 0.16, maxHeight: 0.16 }, // polo (small chest area)
+  { maxWidth: 0.28, maxHeight: 0.2 }, // cap
+  { maxWidth: 0.28, maxHeight: 0.2 }, // apron
+  { maxWidth: 0.36, maxHeight: 0.34 }, // tote
 ];
 
 const PRODUCT_KEYS = ["tshirt", "hoodie", "polo", "cap", "apron", "tote"];
@@ -81,10 +81,10 @@ const COLOR_SWATCHES = [
 const CDN = "https://shopify-ext.vercel.app";
 const DEFAULT_ASSETS = {
   tshirt: `${CDN}/assets/6-cloths/full-front.webp`,
-  hoodie: `${CDN}/assets/6-cloths/Hoodie_White.png`,
-  polo: `${CDN}/assets/6-cloths/polo-tshirt.png`,
-  cap: `${CDN}/assets/6-cloths/Cap_White.png`,
-  apron: `${CDN}/assets/6-cloths/Apron_White.png`,
+  hoodie: `${CDN}/assets/6-cloths/Hoodie_White.webp`,
+  polo: `${CDN}/assets/6-cloths/polo-tshirt.webp`,
+  cap: `${CDN}/assets/6-cloths/Cap_White.webp`,
+  apron: `${CDN}/assets/6-cloths/Apron_White.webp`,
   tote: `${CDN}/assets/6-cloths/Tote_White.png`,
 };
 
@@ -106,7 +106,7 @@ function getDesignOffsetFactor(index) {
     case 3:
       return -0.12; // cap
     case 4:
-      return 0.1; // apron
+      return 0.17; // apron
     case 5:
       return -0.04; // tote
     default:
@@ -159,10 +159,13 @@ const SingleProductPreview = memo(function SingleProductPreview({
   const designScale = useMemo(() => {
     if (!designImage || !garmentImage) return 0;
     const area = FIXED_DESIGN_AREAS[productIndex] ?? FIXED_DESIGN_AREAS[0];
+    // Allowed pixel dimensions inside the garment
     const allowedWidth = garmentWidth * area.maxWidth;
     const allowedHeight = garmentHeight * area.maxHeight;
+    // Scale to fit both axes — whichever is more constrained wins
     const scaleToFitWidth = allowedWidth / designImage.width;
     const scaleToFitHeight = allowedHeight / designImage.height;
+    // Always use the smaller of the two so the image NEVER overflows the cloth
     return Math.min(scaleToFitWidth, scaleToFitHeight);
   }, [designImage, garmentImage, garmentWidth, garmentHeight, productIndex]);
 

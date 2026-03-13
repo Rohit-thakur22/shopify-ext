@@ -97,7 +97,7 @@ const DesignViewerPro = ({
   onColorChange,
   assetUrls = {},
 }) => {
-  const [localTintColor, setLocalTintColor] = useState("#6b7280");
+  const [localTintColor, setLocalTintColor] = useState("#d8d8d8");
   const tintColor =
     propTintColor !== undefined ? propTintColor : localTintColor;
 

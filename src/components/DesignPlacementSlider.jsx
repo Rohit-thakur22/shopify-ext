@@ -7,6 +7,18 @@ import React, {
 } from "react";
 import { Canvas, Image, filters } from "fabric";
 
+// Shared CDN defaults so the slider uses the same main garment art
+// as the primary 6-cloth viewers.
+const CDN = "https://shopify-ext.vercel.app";
+const DEFAULT_ASSETS = {
+  tshirt: `${CDN}/assets/6-cloths/full-front.webp`,
+  hoodie: `${CDN}/assets/6-cloths/Hoodie_White.webp`,
+  polo: `${CDN}/assets/6-cloths/polo-tshirt.webp`,
+  cap: `${CDN}/assets/6-cloths/Cap_White.webp`,
+  apron: `${CDN}/assets/6-cloths/Apron_White.webp`,
+  tote: `${CDN}/assets/6-cloths/Tote_White.png`,
+};
+
 /**
  * DesignPlacementSlider - Shows design placement options on different garment views
  *
@@ -37,13 +49,14 @@ const DesignPlacementSlider = ({
   const CANVAS_W = 130;
   const CANVAS_H = 150;
 
-  // Get t-shirt image source based on view type
-  // Uses Shopify CDN URLs if available, fallback to local assets
+  // Get t-shirt image source based on view type.
+  // For the front view, always use the same CDN garment art as the
+  // main 6-cloths viewers so color patches / render stay consistent.
   const getTshirtSource = useCallback(
     (view) => {
       const viewMap = {
-        front: assetUrls.front || "/assets/preview-cloths/full-front.webp",
-        back: assetUrls.back || "/assets/preview-cloths/full-back.png",
+        front: DEFAULT_ASSETS.tshirt,
+        back: assetUrls.back || "/assets/preview-cloths/full-back.webp",
         side: assetUrls.side || "/assets/preview-cloths/sleeve-1.webp",
       };
       return (
@@ -88,8 +101,8 @@ const DesignPlacementSlider = ({
         id: "sleeve",
         label: "Sleeve",
         view: "side",
-        position: { x: 0.01, y: -0.2 },
-        scale: 0.1,
+        position: { x: 0.02, y: -0.2 },
+        scale: 0.08,
       },
       {
         id: "back-collar",
@@ -169,43 +182,43 @@ const DesignPlacementSlider = ({
           enableRetinaScaling: true,
           imageSmoothing: true,
           imageSmoothingQuality: "high",
-        }).then((img) => {
-          const FABRIC_SCALE_BOOST = 1.04;
-          const scale =
-            Math.min(
-              (CANVAS_W * 0.99) / img.width,
-              (CANVAS_H * 0.99) / img.height,
-            ) * FABRIC_SCALE_BOOST;
+        })
+          .then((img) => {
+            const FABRIC_SCALE_BOOST = 1.04;
+            const scale =
+              Math.min(
+                (CANVAS_W * 0.99) / img.width,
+                (CANVAS_H * 0.99) / img.height,
+              ) * FABRIC_SCALE_BOOST;
 
-          img.set({
-            left: CANVAS_W / 2,
-            top: CANVAS_H / 2,
-            originX: "center",
-            originY: "center",
-            selectable: false,
-            evented: false,
-            scaleX: scale,
-            scaleY: scale,
-            imageSmoothing: true,
-            imageSmoothingQuality: "high",
-            dirty: true,
+            img.set({
+              left: CANVAS_W / 2,
+              top: CANVAS_H / 2,
+              originX: "center",
+              originY: "center",
+              selectable: false,
+              evented: false,
+              scaleX: scale,
+              scaleY: scale,
+              imageSmoothing: true,
+              imageSmoothingQuality: "high",
+              dirty: true,
+            });
+
+            img.filters = buildFabricFilters(tintColor);
+            img.dirty = true;
+            img.applyFilters();
+
+            baseImagesRef.current[idx] = img;
+            canvas.add(img);
+            canvas.renderAll();
+          })
+          .catch((err) => {
+            console.error(
+              `Error loading garment image for ${placement.label}:`,
+              err,
+            );
           });
-
-          img.filters = buildFabricFilters(tintColor);
-          img.dirty = true;
-          img.applyFilters();
-
-          baseImagesRef.current[idx] = img;
-          canvas.add(img);
-          canvas.renderAll();
-
-          // Place logo if already uploaded
-          if (imageUrl) {
-            setTimeout(() => {
-              placeLogoOnCanvas(idx, imageUrl, placement);
-            }, 50);
-          }
-        });
       });
 
       setTimeout(updateArrowVisibility, 300);
@@ -295,32 +308,12 @@ const DesignPlacementSlider = ({
       });
   }, []);
 
-  // Update logos when imageUrl changes
+  // Update logos when imageUrl or canvases change
+  // Always try to place the logo when we have a URL — this lets logos
+  // reappear after tint/color changes recreate the canvases.
   useEffect(() => {
-    if (prevImageUrlRef.current === imageUrl) return;
-    prevImageUrlRef.current = imageUrl;
-
-    if (imageUrl) {
-      // Wait for canvases to be ready
-      const placeLogos = () => {
-        let allReady = true;
-        placements.forEach((placement, idx) => {
-          const canvas = fabricCanvasesRef.current[idx];
-          const baseImg = baseImagesRef.current[idx];
-          if (canvas && baseImg) {
-            placeLogoOnCanvas(idx, imageUrl, placement);
-          } else {
-            allReady = false;
-          }
-        });
-
-        if (!allReady) {
-          setTimeout(placeLogos, 100);
-        }
-      };
-
-      setTimeout(placeLogos, 100);
-    } else {
+    if (!imageUrl) {
+      prevImageUrlRef.current = null;
       // Clear all logos
       placements.forEach((_, idx) => {
         const canvas = fabricCanvasesRef.current[idx];
@@ -335,8 +328,33 @@ const DesignPlacementSlider = ({
         logoImagesRef.current[idx] = null;
         canvas.requestRenderAll();
       });
+      return;
     }
-  }, [imageUrl, placements, placeLogoOnCanvas]);
+
+    prevImageUrlRef.current = imageUrl;
+
+    const maxAttempts = 30;
+    let attempts = 0;
+
+    const placeLogosWhenReady = () => {
+      const allReady = placements.every(
+        (_, idx) =>
+          fabricCanvasesRef.current[idx] && baseImagesRef.current[idx],
+      );
+      if (allReady) {
+        placements.forEach((placement, idx) => {
+          placeLogoOnCanvas(idx, imageUrl, placement);
+        });
+        return;
+      }
+      attempts += 1;
+      if (attempts < maxAttempts) {
+        setTimeout(placeLogosWhenReady, 80);
+      }
+    };
+
+    setTimeout(placeLogosWhenReady, 80);
+  }, [imageUrl, placements, placeLogoOnCanvas, tintColor]);
 
   // Handle placement selection
   const handleSelectPlacement = (placementId) => {
@@ -445,7 +463,7 @@ const DesignPlacementSlider = ({
                     ref={(el) => (canvasRefs.current[index] = el)}
                     style={{
                       display: "block",
-                      imageRendering: "crisp-edges",
+                      imageRendering: "auto",
                     }}
                   />
                 </div>

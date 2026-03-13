@@ -121,7 +121,7 @@ const ProductCustomizer = ({
 
   // UI state — use initialColor from ?color= if valid
   const [tintColor, setTintColor] = useState(
-    () => normalizeHexColor(initialColor) || "#6b7280",
+    () => normalizeHexColor(initialColor) || "#d8d8d8",
   );
   const [urlTitle, setUrlTitle] = useState("");
 
