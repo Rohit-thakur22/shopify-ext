@@ -92,6 +92,72 @@ const AddToCartButton = ({
   const isValid     = hasMultiLineSelection || (width > 0 && height > 0);
   const urlForCart  = isServerUrl ? imageUrl : null;
 
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const postCartItems = async (items) => {
+    const res = await fetch("/cart/add.js", {
+      method : "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body   : JSON.stringify({ items }),
+    });
+    if (res.ok) {
+      return { ok: true, status: res.status, description: "" };
+    }
+    const errData = await res.json().catch(() => ({}));
+    const description = errData?.description || errData?.message || "Failed to add to cart";
+    return { ok: false, status: res.status, description };
+  };
+
+  const isTemporarySoldOut = ({ status, description }) =>
+    status === 422 &&
+    typeof description === "string" &&
+    description.toLowerCase().includes("already sold out");
+
+  const addItemsToCart = async (items) => {
+    const backoffMs = [700, 1400, 2400];
+    let lastResult = null;
+
+    // First, try batched add with retries.
+    for (let i = 0; i <= backoffMs.length; i += 1) {
+      const result = await postCartItems(items);
+      if (result.ok) return;
+      lastResult = result;
+      if (!isTemporarySoldOut(result)) {
+        throw new Error(result.description || "Failed to add to cart");
+      }
+      if (i < backoffMs.length) {
+        await sleep(backoffMs[i]);
+      }
+    }
+
+    // If batch still fails due temporary sold-out, recover line-by-line.
+    if (items.length > 1 && lastResult && isTemporarySoldOut(lastResult)) {
+      for (const item of items) {
+        let singleLast = null;
+        for (let i = 0; i <= backoffMs.length; i += 1) {
+          const result = await postCartItems([item]);
+          if (result.ok) {
+            singleLast = null;
+            break;
+          }
+          singleLast = result;
+          if (!isTemporarySoldOut(result)) {
+            throw new Error(result.description || "Failed to add to cart");
+          }
+          if (i < backoffMs.length) {
+            await sleep(backoffMs[i]);
+          }
+        }
+        if (singleLast) {
+          throw new Error(singleLast.description || "Failed to add to cart");
+        }
+      }
+      return;
+    }
+
+    throw new Error(lastResult?.description || "Failed to add to cart");
+  };
+
   const addToCart = async () => {
     if (!isValid || isLoading || disabled) return;
     setIsLoading(true);
@@ -99,50 +165,56 @@ const AddToCartButton = ({
     setSuccess(false);
 
     try {
-      const pricingRes = await fetch(cartUrl, {
-        method : "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body   : JSON.stringify({
-          width,
-          height,
-          preCut,
-          quantity,
-          totalQty: hasMultiLineSelection ? computedTotalQty : quantity,
-          lines: hasMultiLineSelection ? lineRequests : undefined,
-          customImage: urlForCart || "",
-          productId: productId || "",
-          productTitle: productTitle || "",
-        }),
-      });
-      if (!pricingRes.ok) {
-        const errData = await pricingRes.json().catch(() => ({}));
-        throw new Error(errData.error || "Pricing service unavailable");
-      }
+      const fetchPricingItems = async () => {
+        const pricingRes = await fetch(cartUrl, {
+          method : "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body   : JSON.stringify({
+            width,
+            height,
+            preCut,
+            quantity,
+            totalQty: hasMultiLineSelection ? computedTotalQty : quantity,
+            lines: hasMultiLineSelection ? lineRequests : undefined,
+            customImage: urlForCart || "",
+            productId: productId || "",
+            productTitle: productTitle || "",
+          }),
+        });
+        if (!pricingRes.ok) {
+          const errData = await pricingRes.json().catch(() => ({}));
+          throw new Error(errData.error || "Pricing service unavailable");
+        }
+        const pricingData = await pricingRes.json();
+        const fallbackQuantity = Math.max(1, toInt(quantity, 1));
+        const cartItems = Array.isArray(pricingData?.items)
+          ? pricingData.items
+          : pricingData?.variantId
+          ? [{
+              id: pricingData.variantId,
+              quantity: fallbackQuantity,
+              properties: pricingData.properties || {},
+            }]
+          : [];
+        if (cartItems.length === 0) {
+          throw new Error("Pricing service returned no cart items");
+        }
+        return cartItems;
+      };
 
-      const pricingData = await pricingRes.json();
-      const fallbackQuantity = Math.max(1, toInt(quantity, 1));
-      const cartItems = Array.isArray(pricingData?.items)
-        ? pricingData.items
-        : pricingData?.variantId
-        ? [{
-            id: pricingData.variantId,
-            quantity: fallbackQuantity,
-            properties: pricingData.properties || {},
-          }]
-        : [];
+      const cartItems = await fetchPricingItems();
+      try {
+        await addItemsToCart(cartItems);
+      } catch (firstErr) {
+        const msg = String(firstErr?.message || "");
+        const stillSoldOut = msg.toLowerCase().includes("already sold out");
+        if (!stillSoldOut) throw firstErr;
 
-      if (cartItems.length === 0) {
-        throw new Error("Pricing service returned no cart items");
-      }
-
-      const cartRes = await fetch("/cart/add.js", {
-        method : "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body   : JSON.stringify({ items: cartItems }),
-      });
-      if (!cartRes.ok) {
-        const errData = await cartRes.json().catch(() => ({}));
-        throw new Error(errData.description || "Failed to add to cart");
+        // Last recovery step: rerun pricing once (same as user clicking again)
+        // and retry add with refreshed variant resolution.
+        await sleep(1200);
+        const refreshedItems = await fetchPricingItems();
+        await addItemsToCart(refreshedItems);
       }
 
       setSuccess(true);
