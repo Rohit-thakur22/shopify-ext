@@ -2,10 +2,8 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import UploadPanel from "./UploadPanel";
 import DesignViewerPixelPerfect from "./DesignViewerPixelPerfect";
-import DesignPlacementSlider from "./DesignPlacementSlider";
-import SizeControls from "./SizeControls";
+import DesignStep2 from "./DesignStep2";
 import PreCutCheckbox from "./PreCutCheckbox";
-import PricePreview from "./PricePreview";
 import AddToCartButton from "./AddToCartButton";
 
 // API endpoints
@@ -80,11 +78,7 @@ function getImageDimensionsInInches(url) {
  * - settingsUrl: URL to fetch product customizer feature flags (optional)
  */
 const DEFAULT_SETTINGS = {
-  enableSize: true,
   enablePrecut: true,
-  enableQuantity: true,
-  enablePlacement: true,
-  predefinedSizes: [],
 };
 
 const ProductCustomizer = ({
@@ -100,10 +94,12 @@ const ProductCustomizer = ({
 }) => {
   // Core customization state
   const [imageUrl, setImageUrl] = useState(null);
-  const [width, setWidth] = useState(10);
-  const [height, setHeight] = useState(10);
+  const [width, setWidth] = useState(0);
+  const [height, setHeight] = useState(0);
   const [preCut, setPreCut] = useState(false);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(0);
+  const [step2TotalPrice, setStep2TotalPrice] = useState(0);
+  const [sizeBreakdown, setSizeBreakdown] = useState({});
 
   // Image processing state
   const [currentImageBlob, setCurrentImageBlob] = useState(null);
@@ -146,6 +142,7 @@ const ProductCustomizer = ({
   const cartSectionRef = useRef(null);
   const [cartIsSticky, setCartIsSticky] = useState(false);
 
+
   // On mobile: show a portal-rendered fixed cart when the cart panel scrolls off-screen.
   // Using a portal (rendered into document.body) guarantees position:fixed is always
   // relative to the VIEWPORT, not any Shopify ancestor that has CSS transforms.
@@ -177,6 +174,7 @@ const ProductCustomizer = ({
     };
   }, []);
 
+
   // Update Set Design Size width/height from current preview image dimensions
   const updateDimensionsFromImageUrl = useCallback((url) => {
     if (!url) return;
@@ -190,27 +188,21 @@ const ProductCustomizer = ({
 
   // Fetch product customizer settings on load
   useEffect(() => {
-    if (!settingsUrl) {
-      setSettings(DEFAULT_SETTINGS);
-      return;
-    }
+    if (!settingsUrl) { setSettings(DEFAULT_SETTINGS); return; }
     fetch(settingsUrl)
       .then((r) => r.json())
-      .then((data) => {
-        setSettings({
-          enableSize: data.enableSize === true,
-          enablePrecut: data.enablePrecut === true,
-          enableQuantity: data.enableQuantity === true,
-          enablePlacement: data.enablePlacement === true,
-          predefinedSizes: Array.isArray(data.predefinedSizes)
-            ? data.predefinedSizes
-            : [],
-        });
-      })
-      .catch(() => {
-        setSettings(DEFAULT_SETTINGS);
-      });
+      .then((data) => setSettings({ enablePrecut: data.enablePrecut === true }))
+      .catch(() => setSettings(DEFAULT_SETTINGS));
   }, [settingsUrl]);
+
+  // Step 2 callback — receives aggregate totals plus full placement/size breakdown
+  const handleStep2Change = useCallback(({ width: w, height: h, quantity: q, totalPrice: tp, sizeBreakdown: sb }) => {
+    setWidth(w || 0);
+    setHeight(h || 0);
+    setQuantity(q || 0);
+    setStep2TotalPrice(tp || 0);
+    setSizeBreakdown(sb && typeof sb === "object" ? sb : {});
+  }, []);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -699,36 +691,71 @@ const ProductCustomizer = ({
   // This ensures when user toggles OFF Remove Background we still pass the correct server URL for the original.
   const cartImageUrl = finalImageUrl || null;
 
+  // ── Step header helper ────────────────────────────────────────────────────────
+  const StepHeader = ({ num, title, subtitle, gradient, right }) => (
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.75rem", marginBottom: "1.25rem" }}>
+      {/* Left: circle + text */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", flex: 1, minWidth: 0 }}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: "2rem", height: "2rem", borderRadius: "9999px",
+          background: gradient, color: "#ffffff",
+          fontSize: "0.875rem", fontWeight: 800, flexShrink: 0,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+        }}>{num}</span>
+        <div style={{ minWidth: 0 }}>
+          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#111827", lineHeight: 1.3 }}>{title}</h3>
+          <p style={{ margin: "0.125rem 0 0", fontSize: "0.8125rem", color: "#6b7280" }}>{subtitle}</p>
+        </div>
+      </div>
+      {/* Right slot */}
+      {right && <div style={{ flexShrink: 0, marginTop: "0.125rem" }}>{right}</div>}
+    </div>
+  );
+
+  const R = "1rem";          // card border-radius
+  const SH = "0 1px 4px rgba(0,0,0,0.06)"; // card shadow
+
   return (
-    <div className="product-customizer w-full bg-white">
-      <div className="max-w-7xl mx-auto p-4">
-        {/* Header */}
-        <div
-          className="mb-8 text-center sm:text-left"
-          style={{ marginBottom: 20 }}
-        >
-          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">
-            Customize {urlTitle ? urlTitle : "Your Product"}
-          </h1>
-          <p className="text-base text-gray-500 mt-2">
-            Upload your design, set dimensions, and add to cart
-          </p>
+    <div className="product-customizer" style={{ width: "100%", backgroundColor: "#ffffff" }}>
+      <div style={{ maxWidth: "84rem", margin: "0 auto", padding: "1rem" }}>
+
+        {/* ── Header banner ── */}
+        <div style={{
+          marginBottom: "1.5rem", position: "relative", overflow: "hidden",
+          borderRadius: R, padding: "1.5rem",
+          background: "linear-gradient(90deg, #7b2cbf 0%, #ff69b4 55%, #0a1172 100%)",
+          boxShadow: "0 10px 28px -5px rgba(123,44,191,0.35)",
+        }}>
+          {/* decorative orbs */}
+          <div style={{ position: "absolute", top: 0, right: 0, width: "13rem", height: "13rem", borderRadius: "9999px", background: "rgba(255,255,255,0.07)", transform: "translate(30%,-35%)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", bottom: 0, left: "30%", width: "8rem", height: "8rem", borderRadius: "9999px", background: "rgba(255,105,180,0.18)", transform: "translateY(50%)", pointerEvents: "none" }} />
+          <div style={{ position: "relative" }}>
+            <h1 style={{ margin: 0, fontSize: "clamp(1.35rem, 2.5vw, 1.875rem)", fontWeight: 800, color: "#ffffff", letterSpacing: "-0.025em", lineHeight: 1.25 }}>
+              {urlTitle ? `Customize ${urlTitle}` : "Design Your Product"}
+            </h1>
+            <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem", color: "rgba(255,220,240,0.92)" }}>
+              Upload your design, choose placement &amp; sizes, and add to cart
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.625rem", marginTop: "0.875rem" }}>
+              {["Free Art Review", "HD Print Quality", "Volume Discounts Up to 50%"].map((b) => (
+                <span key={b} style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", fontSize: "0.75rem", fontWeight: 600, color: "rgba(255,255,255,0.95)", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)", padding: "0.25rem 0.625rem", borderRadius: "9999px" }}>
+                  <svg style={{ width: "0.7rem", height: "0.7rem", flexShrink: 0 }} fill="none" stroke="#fde68a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                    <path d="M20 6L9 17l-5-5"/>
+                  </svg>
+                  {b}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Main layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left column - Visual Previews (Sticky on desktop) */}
-          <div
-            className="lg:col-span-7 lg:sticky lg:top-6 h-max"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "24px",
-              marginRight: 24,
-            }}
-          >
-            {/* Design Viewer - Pixel-perfect Konva mockup rendering */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all duration-200">
+        {/* ── Two-column layout ── */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "1.25rem", alignItems: "flex-start" }}>
+
+          {/* ── Left column: live preview (narrower) ── */}
+          <div style={{ flex: "1 1 38%", minWidth: "min(100%, 280px)" }}>
+            <div style={{ backgroundColor: "#ffffff", borderRadius: R, border: "1px solid #e9d5ff", padding: "1.125rem", boxShadow: SH }}>
               <DesignViewerPixelPerfect
                 imageUrl={imageUrl}
                 tintColor={tintColor}
@@ -736,30 +763,19 @@ const ProductCustomizer = ({
                 assetUrls={assetUrls}
               />
             </div>
-
-            {/* Design Placement Slider */}
-            {settings.enablePlacement && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all duration-200">
-                <DesignPlacementSlider
-                  imageUrl={imageUrl}
-                  tintColor={tintColor}
-                  assetUrls={assetUrls}
-                />
-              </div>
-            )}
           </div>
 
-          {/* Right column - Controls and Cart (extra bottom padding on mobile for sticky Add to Cart) */}
-          <div
-            className="lg:col-span-5 add-to-cart-mobile-spacer"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "24px",
-            }}
-          >
-            {/* Upload Panel */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all duration-200">
+          {/* ── Right column: 3 steps (wider) ── */}
+          <div className="add-to-cart-mobile-spacer" style={{ flex: "1 1 56%", minWidth: "min(100%, 280px)", display: "flex", flexDirection: "column", gap: "1.125rem" }}>
+
+            {/* ── STEP 1: Upload your design ── */}
+            <div style={{ borderRadius: R, border: "1px solid #d8b4fe", background: "linear-gradient(145deg, rgba(123,44,191,0.04) 0%, #ffffff 100%)", padding: "1.375rem", boxShadow: SH }}>
+              <StepHeader
+                num="1"
+                title="Upload Your Design"
+                subtitle="Supports PNG, JPG, SVG — we auto-remove the background"
+                gradient="linear-gradient(135deg, #7b2cbf, #9d4edd)"
+              />
               <UploadPanel
                 onUpload={handleImageUpload}
                 imageUrl={imageUrl}
@@ -774,188 +790,155 @@ const ProductCustomizer = ({
                 onToggleRemoveBg={handleToggleRemoveBg}
               />
             </div>
-            {/* Size Controls */}
-            {settings.enableSize && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all duration-200">
-                <SizeControls
-                  width={width}
-                  height={height}
-                  setWidth={setWidth}
-                  setHeight={setHeight}
-                  predefinedSizes={settings.predefinedSizes || []}
-                  disabled={
-                    loadingRemoveBg || loadingEnhance || loadingDesignFromUrl
-                  }
-                />
-              </div>
-            )}
 
-            {/* Pre-cut Service */}
-            {settings.enablePrecut && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all duration-200">
+            {/* ── STEP 2: Set design placement, sizes & quantities ── */}
+            <div style={{ borderRadius: R, border: "1px solid #fbcfe8", background: "linear-gradient(145deg, rgba(255,105,180,0.04) 0%, #ffffff 100%)", padding: "1.375rem", boxShadow: SH }}>
+              <StepHeader
+                num="2"
+                title="Set Design Size &amp; Quantity"
+                subtitle="Choose placement, select sizes, and enter quantities per size"
+                gradient="linear-gradient(135deg, #be185d, #ff69b4)"
+              />
+              <DesignStep2
+                preCut={preCut}
+                imageUrl={imageUrl}
+                tintColor={tintColor}
+                assetUrls={assetUrls}
+                onChange={handleStep2Change}
+              />
+
+              {/* ── Pre-cut: last section of Step 2 ── */}
+              <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid #e5e7eb" }}>
                 <PreCutCheckbox preCut={preCut} setPreCut={setPreCut} />
               </div>
-            )}
+            </div>
 
-            {/* Quantity Control */}
-            {settings.enableQuantity && (
-              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all duration-200">
-                <div className="text-start space-y-1 mb-5">
-                  <h2 className="text-lg font-bold tracking-tight text-gray-900">
-                    Step 4: Quantity
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    Order more for volume discounts
-                  </p>
+            {/* ── STEP 3: Review & Add to Cart ── */}
+            <div style={{ borderRadius: R, border: "1px solid #bfdbfe", background: "linear-gradient(145deg, rgba(10,17,114,0.04) 0%, #ffffff 100%)", padding: "1.375rem", boxShadow: SH }}>
+              <StepHeader
+                num="3"
+                title="Review &amp; Add to Cart"
+                subtitle="Double-check your order then add it to cart"
+                gradient="linear-gradient(135deg, #0a1172, #2563eb)"
+                right={quantity === 0 ? (
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: "0.3rem",
+                    fontSize: "0.75rem", fontWeight: 600, color: "#92400e",
+                    backgroundColor: "#fffbeb", border: "1px solid #fde68a",
+                    borderRadius: "9999px", padding: "0.25rem 0.625rem",
+                    whiteSpace: "nowrap",
+                  }}>
+                    Complete Steps 1 &amp; 2 first
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                  </span>
+                ) : null}
+              />
+
+              {/* Order summary */}
+              {quantity > 0 ? (
+                <div style={{ marginBottom: "1.25rem", padding: "1rem", backgroundColor: "#f8fafc", borderRadius: "0.75rem", border: "1px solid #e2e8f0" }}>
+                  <p style={{ margin: "0 0 0.625rem", fontSize: "0.8125rem", fontWeight: 700, color: "#374151" }}>Order Summary</p>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.375rem" }}>
+                    <span style={{ fontSize: "0.8125rem", color: "#6b7280" }}>Total transfers:</span>
+                    <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#111827" }}>{quantity}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "0.5rem", borderTop: "1px solid #e5e7eb", marginTop: "0.375rem" }}>
+                    <span style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#111827" }}>Estimated Total:</span>
+                    <span style={{ fontSize: "1.125rem", fontWeight: 800, color: "#7b2cbf", letterSpacing: "-0.02em" }}>
+                      ${Number(step2TotalPrice).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {cartImageUrl && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginTop: "0.5rem", fontSize: "0.75rem", color: "#059669" }}>
+                      <svg style={{ width: "0.875rem", height: "0.875rem", flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Design image ready
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="h-12 w-12 rounded-xl border border-gray-200 text-2xl font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center justify-center shadow-sm"
-                  >
-                    −
-                  </button>
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) =>
-                      setQuantity(Math.max(1, parseInt(e.target.value) || 1))
-                    }
-                    min={1}
-                    className="w-24 h-12 rounded-xl border border-gray-200 text-center text-lg font-bold text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((q) => q + 1)}
-                    className="h-12 w-12 rounded-xl border border-gray-200 text-2xl font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center justify-center shadow-sm"
-                  >
-                    +
-                  </button>
-                </div>
+              ) : null}
+
+              {/* Add to Cart — in-place (hidden when mobile sticky portal active) */}
+              <div
+                ref={cartSectionRef}
+                style={{ opacity: cartIsSticky ? 0 : 1, pointerEvents: cartIsSticky ? "none" : "auto" }}
+              >
+                <AddToCartButton
+                  cartUrl={cartUrl}
+                  productId={productId}
+                  productTitle={productTitle}
+                  imageUrl={cartImageUrl}
+                  width={width}
+                  height={height}
+                  preCut={preCut}
+                  quantity={quantity || 1}
+                  sizeBreakdown={sizeBreakdown}
+                  disabled={loadingRemoveBg || loadingEnhance || loadingDesignFromUrl || quantity === 0}
+                />
               </div>
-            )}
 
-            {/* Price Preview */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all duration-200">
-              <PricePreview
-                width={width}
-                height={height}
-                preCut={preCut}
-                quantity={quantity}
-                variantPrice={variantPrice}
-              />
-            </div>
-
-            {/* ── In-place anchor (always rendered, hidden via opacity when sticky portal is showing) ── */}
-            <div
-              ref={cartSectionRef}
-              style={{
-                opacity: cartIsSticky ? 0 : 1,
-                pointerEvents: cartIsSticky ? "none" : "auto",
-              }}
-              className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm"
-            >
-              <AddToCartButton
-                cartUrl={cartUrl}
-                productId={productId}
-                productTitle={productTitle}
-                imageUrl={cartImageUrl}
-                width={width}
-                height={height}
-                preCut={preCut}
-                quantity={quantity}
-                disabled={
-                  loadingRemoveBg || loadingEnhance || loadingDesignFromUrl
-                }
-              />
-            </div>
-
-            {/* ── Portal: renders into document.body so position:fixed is ALWAYS viewport-relative ── */}
-            {cartIsSticky &&
-              typeof document !== "undefined" &&
-              createPortal(
-                <div
-                  style={{
-                    position: "fixed",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    zIndex: 2147483647,
-                    backgroundColor: "#fff",
+              {/* Mobile sticky cart portal */}
+              {cartIsSticky &&
+                typeof document !== "undefined" &&
+                createPortal(
+                  <div style={{
+                    position: "fixed", bottom: 0, left: 0, right: 0,
+                    zIndex: 2147483647, backgroundColor: "#fff",
                     borderTop: "1px solid #e5e7eb",
                     boxShadow: "0 -6px 24px rgba(0,0,0,0.12)",
                     padding: "0.75rem 1rem",
-                    paddingBottom:
-                      "calc(0.75rem + env(safe-area-inset-bottom))",
-                  }}
-                >
-                  <AddToCartButton
-                    cartUrl={cartUrl}
-                    productId={productId}
-                    productTitle={productTitle}
-                    imageUrl={cartImageUrl}
-                    width={width}
-                    height={height}
-                    preCut={preCut}
-                    quantity={quantity}
-                    disabled={
-                      loadingRemoveBg || loadingEnhance || loadingDesignFromUrl
-                    }
-                  />
-                </div>,
-                document.body,
-              )}
+                    paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))",
+                  }}>
+                    <AddToCartButton
+                      cartUrl={cartUrl}
+                      productId={productId}
+                      productTitle={productTitle}
+                      imageUrl={cartImageUrl}
+                      width={width}
+                      height={height}
+                      preCut={preCut}
+                      quantity={quantity || 1}
+                      sizeBreakdown={sizeBreakdown}
+                      disabled={loadingRemoveBg || loadingEnhance || loadingDesignFromUrl || quantity === 0}
+                    />
+                  </div>,
+                  document.body,
+                )}
+            </div>
 
-            {/* Processing status indicator */}
-            {cartImageUrl && (
-              <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 px-3 py-2 rounded-lg">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <span>Image ready for order (matches preview)</span>
-              </div>
-            )}
-          </div>
-        </div>
+          </div>{/* end right column */}
+        </div>{/* end two-column */}
 
-        {/* Footer info */}
-        <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
-              <svg
-                className="w-5 h-5 text-green-600"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
+        {/* ── Footer guarantee ── */}
+        <div style={{ marginTop: "1.5rem", padding: "1.125rem", background: "linear-gradient(135deg, rgba(123,44,191,0.06) 0%, rgba(255,105,180,0.06) 55%, rgba(10,17,114,0.06) 100%)", borderRadius: R, border: "1px solid #e9d5ff", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "0.875rem" }}>
+            <div style={{ flexShrink: 0, width: "2.25rem", height: "2.25rem", background: "linear-gradient(135deg, #7b2cbf, #ff69b4)", borderRadius: "0.75rem", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(123,44,191,0.3)" }}>
+              <svg style={{ width: "1.125rem", height: "1.125rem", color: "#ffffff" }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
               </svg>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-green-800">
-                Perfect Prints Guarantee
-              </h4>
-              <p className="text-xs text-green-700 mt-1">
-                Free art review included. No extra fees. We ensure your design
-                looks great before printing.
+              <h4 style={{ margin: 0, fontSize: "0.875rem", fontWeight: 700, color: "#0a1172" }}>Perfect Prints Guarantee</h4>
+              <p style={{ margin: "0.2rem 0 0", fontSize: "0.75rem", color: "#7b2cbf", lineHeight: 1.6 }}>
+                Free art review included. No extra fees. We ensure your design looks great before printing.
               </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.625rem" }}>
+                {["No Setup Fees", "Free Art Review", "Satisfaction Guaranteed"].map((item) => (
+                  <span key={item} style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.75rem", fontWeight: 600, color: "#0a1172", backgroundColor: "rgba(255,255,255,0.85)", padding: "0.125rem 0.625rem", borderRadius: "9999px", border: "1px solid #d8b4fe" }}>
+                    <svg style={{ width: "0.6rem", height: "0.6rem", flexShrink: 0 }} fill="none" stroke="#7b2cbf" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                      <path d="M20 6L9 17l-5-5"/>
+                    </svg>
+                    {item}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );

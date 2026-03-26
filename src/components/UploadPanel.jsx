@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import UploadLoader from "./UploadLoader";
+import { Camera, Trash } from "lucide-react";
 
 const UploadPanel = ({
   onUpload,
@@ -360,7 +361,7 @@ const UploadPanel = ({
                 }
               }}
             >
-              📷 Upload Different Image
+             <Camera className="w-4 h-4 mr-2" /> Upload Different Image
             </button>
             {onClear && (
               <button
@@ -398,7 +399,7 @@ const UploadPanel = ({
                   }
                 }}
               >
-                🗑 Remove
+                <Trash className="w-4 h-4 mr-2" /> Remove
               </button>
             )}
           </div>
@@ -434,8 +435,7 @@ const UploadPanel = ({
             </div>
             <div>
               <p className="text-base font-semibold text-gray-800">
-                Loading your design
-              </p>
+                Loading your design </p>
               <p className="text-sm text-gray-500 mt-1">
                 Fetching image from product…
               </p>

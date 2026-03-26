@@ -23,8 +23,8 @@ import useImage from "use-image";
  * - assetUrls: Product image URLs and optional colorVariants
  */
 
-// Stage internal resolution (high DPI); display size controlled by CSS
-const STAGE_WIDTH = 500;
+// Stage internal resolution (display size is CSS-scaled via scaleFactor)
+const STAGE_WIDTH  = 500;
 const STAGE_HEIGHT = 600;
 
 const GARMENT_PADDING = 1.1;
@@ -56,6 +56,7 @@ const FIXED_DESIGN_AREAS = [
 ];
 
 const PRODUCT_KEYS = ["tshirt", "hoodie", "polo", "cap", "apron", "tote"];
+const PRODUCT_LABELS = ["T-Shirt", "Hoodie", "Polo Shirt", "Cap", "Apron", "Tote Bag"];
 const SIZES = [
   '11" x 11"',
   '4" x 2.5"',
@@ -118,6 +119,9 @@ function getDesignOffsetFactor(index) {
  * Single product preview: one Konva Stage with layered images.
  * Memoized to avoid unnecessary rerenders when parent updates.
  */
+// Cap at 2 — anything above 2× DPR gives no visible benefit and doubles canvas cost
+const DPR = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 2;
+
 const SingleProductPreview = memo(function SingleProductPreview({
   garmentUrl,
   designUrl,
@@ -132,9 +136,8 @@ const SingleProductPreview = memo(function SingleProductPreview({
   React.useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
-      if (entries[0] && entries[0].contentRect.width > 0) {
-        setScaleFactor(entries[0].contentRect.width / STAGE_WIDTH);
-      }
+      const w = entries[0]?.contentRect.width;
+      if (w > 0) setScaleFactor(w / STAGE_WIDTH);
     });
     observer.observe(containerRef.current);
     return () => observer.disconnect();
@@ -217,12 +220,15 @@ const SingleProductPreview = memo(function SingleProductPreview({
             height: STAGE_HEIGHT,
             transform: `scale(${scaleFactor})`,
             transformOrigin: "0 0",
+            // GPU-accelerated layer — avoids sub-pixel softening on CSS transform
+            willChange: "transform",
+            imageRendering: "high-quality",
           }}
         >
           <Stage
             width={STAGE_WIDTH}
             height={STAGE_HEIGHT}
-            style={{ imageRendering: "auto" }}
+            pixelRatio={DPR}
           >
             <Layer listening={false}>
               {/* 1. Garment base image */}
@@ -350,103 +356,132 @@ function DesignViewerPixelPerfect({
   );
 
   return (
-    <div className="design-viewer">
-      <div className="w-full">
-        <div className="max-w-3xl p-6 bg-white rounded-2xl border border-gray-100 shadow-sm h-max">
-          <div className="text-start space-y-1 mb-6">
-            <h2 className="text-lg font-bold tracking-tight text-gray-900">
-              Preview
+    <div>
+      <div style={{ width: "100%" }}>
+        {/* Section header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 700, color: "#111827", letterSpacing: "-0.015em", display: "flex", alignItems: "center", gap: "0.5rem", lineHeight: 1.3 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "1.75rem", height: "1.75rem", background: "linear-gradient(135deg, #6366f1, #9333ea)", borderRadius: "0.5rem", flexShrink: 0, boxShadow: "0 2px 6px rgba(99,102,241,0.35)" }}>
+                <svg style={{ width: "1rem", height: "1rem", color: "#fff" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </span>
+              Live Preview
             </h2>
-            <p className="text-sm text-gray-500">
-              See your design on our most popular styles
-            </p>
+            <p style={{ margin: "0.125rem 0 0 2.25rem", fontSize: "0.75rem", color: "#9ca3af" }}>Your design across 6 popular styles</p>
           </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-            {products.map((product, index) => (
-              <div
-                key={product.key}
-                className="group flex pt-3 flex-col items-center transform transition-all duration-300 ease-in-out hover:scale-180 hover:-translate-y-1"
-                style={{
-                  willChange: "transform",
-                  backfaceVisibility: "hidden",
-                  transform: "translateZ(0)",
-                  zIndex: hoveredIndex === index ? 100 : 10 - index,
-                }}
-                onMouseEnter={() => setHoveredIndex(index)}
-                onMouseLeave={() => setHoveredIndex(null)}
-              >
-                <div className="rounded-xl p-2 sm:p-3 w-full bg-gray-50/50 border border-gray-100 shadow-inner group-hover:shadow-md group-hover:bg-white group-hover:border-indigo-100 transition-all duration-300 flex items-center justify-center overflow-hidden">
-                  <div
-                    className="w-full max-w-[200px] rounded-lg overflow-hidden"
-                    style={{
-                      aspectRatio: "5/6",
-                      filter: "contrast(1.1) saturate(1.05)",
-                    }}
-                  >
-                    <SingleProductPreview
-                      garmentUrl={product.garmentUrl}
-                      designUrl={imageUrl}
-                      textureUrl={product.textureUrl}
-                      shadowUrl={product.shadowUrl}
-                      productIndex={index}
-                      tintColor={tintColor}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          {imageUrl && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", fontSize: "0.75rem", backgroundColor: "#d1fae5", color: "#065f46", fontWeight: 600, padding: "0.25rem 0.625rem", borderRadius: "9999px", border: "1px solid #a7f3d0", whiteSpace: "nowrap" }}>
+              <span style={{ width: "0.375rem", height: "0.375rem", backgroundColor: "#10b981", borderRadius: "9999px", display: "inline-block", flexShrink: 0 }} />
+              Live
+            </span>
+          )}
         </div>
 
-        <div
-          className="mt-6 p-2 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 shadow-sm"
-          style={{ marginTop: 5 }}
-        >
-          <p className="text-sm text-gray-800 font-semibold mb-3 flex items-center gap-2">
-            <svg
-              className="w-4 h-4 text-indigo-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+        {/* 2-column product grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", overflow: "visible" }}>
+          {products.map((product, index) => (
+            <div
+              key={product.key}
+              style={{
+                display: "flex",
+                paddingTop: "0.75rem",
+                flexDirection: "column",
+                alignItems: "center",
+                transform: hoveredIndex === index ? "scale(1.7) translateY(-4px)" : "scale(1) translateY(0)",
+                transition: "transform 0.3s ease",
+                willChange: "transform",
+                zIndex: hoveredIndex === index ? 100 : 10 - index,
+                position: "relative",
+              }}
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
-              />
-            </svg>
-            Change preview items to any color below:
+              <div style={{
+                borderRadius: "0.75rem",
+                padding: "0.5rem",
+                width: "100%",
+                background: hoveredIndex === index
+                  ? "linear-gradient(180deg, rgba(238,242,255,0.5) 0%, #ffffff 100%)"
+                  : "linear-gradient(180deg, #f9fafb 0%, #ffffff 100%)",
+                border: hoveredIndex === index ? "1px solid #c7d2fe" : "1px solid #f3f4f6",
+                boxShadow: hoveredIndex === index ? "0 6px 16px rgba(0,0,0,0.1)" : "0 1px 3px rgba(0,0,0,0.05)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                boxSizing: "border-box",
+                transition: "all 0.3s ease",
+              }}>
+                <div style={{ width: "100%", borderRadius: "0.5rem", overflow: "hidden", aspectRatio: "5/6" }}>
+                  <SingleProductPreview
+                    garmentUrl={product.garmentUrl}
+                    designUrl={imageUrl}
+                    textureUrl={product.textureUrl}
+                    shadowUrl={product.shadowUrl}
+                    productIndex={index}
+                    tintColor={tintColor}
+                  />
+                </div>
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, marginTop: "0.5rem", color: hoveredIndex === index ? "#4f46e5" : "#6b7280", transition: "color 0.2s" }}>
+                  {PRODUCT_LABELS[index]}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Color picker */}
+        <div style={{ marginTop: "1.25rem", padding: "1rem", background: "linear-gradient(145deg, #eef2ff 0%, rgba(245,243,255,0.6) 50%, #ffffff 100%)", borderRadius: "1rem", border: "1px solid #c7d2fe", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+          <p style={{ margin: "0 0 0.75rem 0", fontSize: "0.875rem", fontWeight: 700, color: "#1f2937", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "1.25rem", height: "1.25rem", background: "linear-gradient(135deg, #8b5cf6, #ec4899)", borderRadius: "9999px", flexShrink: 0, boxShadow: "0 1px 4px rgba(139,92,246,0.4)" }}>
+              <svg style={{ width: "0.75rem", height: "0.75rem", color: "#fff" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+              </svg>
+            </span>
+            Garment Color
           </p>
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
             {COLOR_SWATCHES.map((color) => (
               <button
                 key={color}
                 type="button"
                 aria-label={`Color ${color}`}
-                className={`h-8 w-8 shrink-0 rounded-full border border-gray-200 shadow-sm hover:scale-110 transition-transform duration-200 focus:outline-none ${
-                  tintColor === color
-                    ? "ring-2 ring-offset-2 ring-indigo-500 scale-110"
-                    : ""
-                }`}
-                style={{ backgroundColor: color }}
                 onClick={() => changeColor(color)}
+                style={{
+                  width: "1.75rem",
+                  height: "1.75rem",
+                  flexShrink: 0,
+                  borderRadius: "9999px",
+                  border: tintColor === color ? "2px solid #6366f1" : "2px solid #ffffff",
+                  backgroundColor: color,
+                  boxShadow: tintColor === color
+                    ? "0 0 0 3px rgba(99,102,241,0.25), 0 1px 4px rgba(0,0,0,0.18)"
+                    : "0 1px 4px rgba(0,0,0,0.18)",
+                  cursor: "pointer",
+                  transform: tintColor === color ? "scale(1.2)" : "scale(1)",
+                  transition: "transform 0.15s, box-shadow 0.15s",
+                  padding: 0,
+                  outline: "none",
+                }}
               />
             ))}
-            <label className="relative h-8 w-8 shrink-0 cursor-pointer rounded-full border border-gray-200 overflow-hidden shadow-sm hover:scale-110 transition-transform duration-200">
+            <label style={{ position: "relative", width: "1.75rem", height: "1.75rem", flexShrink: 0, cursor: "pointer", borderRadius: "9999px", border: "2px solid #ffffff", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.18)", display: "block" }}>
               <span
-                className="absolute inset-0 block rounded-full"
                 style={{
-                  background:
-                    "conic-gradient(from 0deg, #ff0000, #ff8800, #ffff00, #88ff00, #00ff00, #00ff88, #00ffff, #0088ff, #0000ff, #8800ff, #ff00ff, #ff0088, #ff0000)",
+                  position: "absolute",
+                  inset: 0,
+                  display: "block",
+                  borderRadius: "9999px",
+                  background: "conic-gradient(from 0deg, #ff0000, #ff8800, #ffff00, #88ff00, #00ff00, #00ff88, #00ffff, #0088ff, #0000ff, #8800ff, #ff00ff, #ff0088, #ff0000)",
                 }}
               />
               <input
                 type="color"
                 value={tintColor}
                 onChange={(e) => changeColor(e.target.value)}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "pointer", opacity: 0 }}
                 aria-label="Pick custom color"
               />
             </label>
