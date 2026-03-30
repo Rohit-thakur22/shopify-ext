@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState, memo } from "react";
 import { Stage, Layer, Image, Rect, Group } from "react-konva";
 import useImage from "use-image";
+import useDisableInteractions from "../hooks/useDisableInteractions";
 
 /**
  * DesignViewerPixelPerfect - Pixel-perfect mockup rendering with Konva.js
@@ -132,6 +133,7 @@ const SingleProductPreview = memo(function SingleProductPreview({
 }) {
   const containerRef = React.useRef(null);
   const [scaleFactor, setScaleFactor] = React.useState(0.4);
+  const interactionBlockProps = useDisableInteractions({ enabled: true });
 
   React.useEffect(() => {
     if (!containerRef.current) return;
@@ -319,6 +321,17 @@ const SingleProductPreview = memo(function SingleProductPreview({
           </Stage>
         </div>
       )}
+      <div
+        {...interactionBlockProps}
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 20,
+          background: "transparent",
+          ...interactionBlockProps.style,
+        }}
+        aria-hidden
+      />
     </div>
   );
 });

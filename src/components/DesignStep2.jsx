@@ -24,6 +24,7 @@ import {
   DISCOUNT_TIERS,
   PLACEMENT_CATALOGUE,
 } from "../lib/pricingConfig";
+import useDisableInteractions from "../hooks/useDisableInteractions";
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 let _seq = 0;
@@ -154,6 +155,7 @@ const PlacementCard = memo(function PlacementCard({
   const containerRef = useRef(null); // React never renders children here
   const fcRef        = useRef(null);
   const baseImgRef   = useRef(null);
+  const interactionBlockProps = useDisableInteractions({ enabled: true });
 
   const buildFilters = useCallback((color) => [
     new filters.BlendColor({ color, mode: "multiply", alpha: 0.85 }),
@@ -275,6 +277,11 @@ const PlacementCard = memo(function PlacementCard({
   return (
     <div
       onClick={onToggle}
+      onContextMenu={interactionBlockProps.onContextMenu}
+      onDragStart={interactionBlockProps.onDragStart}
+      onCopy={interactionBlockProps.onCopy}
+      onCut={interactionBlockProps.onCut}
+      onSelectStart={interactionBlockProps.onSelectStart}
       style={{
         position: "relative", cursor: "pointer",
         borderRadius: "0.5rem",
@@ -284,6 +291,7 @@ const PlacementCard = memo(function PlacementCard({
         transition: "border-color 0.15s, box-shadow 0.15s",
         padding: "0.375rem",
         display: "flex", flexDirection: "column", alignItems: "center",
+        ...interactionBlockProps.style,
       }}
     >
       {/* Checkmark — absolutely positioned, never adjacent to canvas in React tree */}

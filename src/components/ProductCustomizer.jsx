@@ -5,6 +5,7 @@ import DesignViewerPixelPerfect from "./DesignViewerPixelPerfect";
 import DesignStep2 from "./DesignStep2";
 import PreCutCheckbox from "./PreCutCheckbox";
 import AddToCartButton from "./AddToCartButton";
+import useScopedShortcutProtection from "../hooks/useScopedShortcutProtection";
 
 // API endpoints
 const API_BASE = "https://highquality.allgovjobs.com/backend";
@@ -141,6 +142,9 @@ const ProductCustomizer = ({
   const processedBlobUrlRef = useRef(null);
   const cartSectionRef = useRef(null);
   const [cartIsSticky, setCartIsSticky] = useState(false);
+  const customizerRootRef = useRef(null);
+
+  useScopedShortcutProtection(customizerRootRef, { enabled: true });
 
 
   // On mobile: show a portal-rendered fixed cart when the cart panel scrolls off-screen.
@@ -717,7 +721,11 @@ const ProductCustomizer = ({
   const SH = "0 1px 4px rgba(0,0,0,0.06)"; // card shadow
 
   return (
-    <div className="product-customizer" style={{ width: "100%", backgroundColor: "#ffffff" }}>
+    <div
+      ref={customizerRootRef}
+      className="product-customizer"
+      style={{ width: "100%", backgroundColor: "#ffffff" }}
+    >
       <div style={{ maxWidth: "84rem", margin: "0 auto", padding: "1rem" }}>
 
         {/* ── Header banner ── */}
@@ -779,7 +787,6 @@ const ProductCustomizer = ({
               <UploadPanel
                 onUpload={handleImageUpload}
                 imageUrl={imageUrl}
-                onRemoveBg={handleRemoveBg}
                 onEnhance={handleEnhance}
                 loadingRemoveBg={loadingRemoveBg}
                 loadingEnhance={loadingEnhance}

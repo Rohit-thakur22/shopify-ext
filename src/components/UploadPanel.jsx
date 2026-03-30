@@ -1,11 +1,11 @@
 import React, { useRef, useState, useEffect } from "react";
 import UploadLoader from "./UploadLoader";
 import { Camera, Trash } from "lucide-react";
+import useDisableInteractions from "../hooks/useDisableInteractions";
 
 const UploadPanel = ({
   onUpload,
   imageUrl,
-  onRemoveBg,
   onEnhance,
   loadingRemoveBg = false,
   loadingEnhance = false,
@@ -20,6 +20,7 @@ const UploadPanel = ({
   const [isHovering, setIsHovering] = useState(false);
   const [bgPos, setBgPos] = useState("center");
   const [progress, setProgress] = useState(0);
+  const interactionBlockProps = useDisableInteractions({ enabled: true });
 
   // Disable zoom while loading so hover doesn't trigger zoom
   const zoomActive = isHovering && !loadingRemoveBg && !loadingEnhance;
@@ -203,12 +204,7 @@ const UploadPanel = ({
               }
               onMouseLeave={() => setIsHovering(false)}
               onMouseMove={zoomActive ? handleMouseMove : undefined}
-              onClick={() =>
-                !loadingRemoveBg &&
-                !loadingEnhance &&
-                window.open(imageUrl, "_blank")
-              }
-              aria-label="Uploaded image preview - click to enlarge"
+              aria-label="Uploaded image preview"
             >
               {/* Loading overlay - animated loader with progress and Stop */}
               {isAnyLoading && (
@@ -222,14 +218,22 @@ const UploadPanel = ({
                   onStop={onCancelProcessing}
                 />
               )}
+
+              {/* Transparent protection layer: blocks direct media interaction */}
+              <div
+                {...interactionBlockProps}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: 5,
+                  background: "transparent",
+                  ...interactionBlockProps.style,
+                }}
+                aria-hidden
+              />
             </div>
 
-            {/* Hover hint */}
-            <div className="hidden lg:flex items-center justify-center gap-2 mt-2 text-xs text-gray-500">
-              <span>Hover to zoom</span>
-              <span>•</span>
-              <span>Click to open full size</span>
-            </div>
+            {/* Note: keep media interactions blocked intentionally for protection */}
           </div>
 
           {/* Action buttons */}
