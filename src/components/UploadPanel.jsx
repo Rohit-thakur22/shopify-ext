@@ -1,7 +1,102 @@
 import React, { useRef, useState, useEffect } from "react";
 import UploadLoader from "./UploadLoader";
+import DpiWarningModal from "./DpiWarningModal";
 import { Camera, Trash } from "lucide-react";
 import useDisableInteractions from "../hooks/useDisableInteractions";
+
+const PRINT_DPI_THRESHOLD = 300;
+
+function getPngDpi(view) {
+  // PNG signature is 8 bytes, chunks start at byte 8
+  let offset = 8;
+  while (offset + 12 <= view.byteLength) {
+    const length = view.getUint32(offset);
+    const type = String.fromCharCode(
+      view.getUint8(offset + 4),
+      view.getUint8(offset + 5),
+      view.getUint8(offset + 6),
+      view.getUint8(offset + 7),
+    );
+
+    // pHYs: 4 bytes x ppm, 4 bytes y ppm, 1 byte unit specifier
+    if (type === "pHYs" && length === 9) {
+      const xPpm = view.getUint32(offset + 8);
+      const yPpm = view.getUint32(offset + 12);
+      const unit = view.getUint8(offset + 16);
+      if (unit === 1) {
+        return {
+          x: xPpm * 0.0254,
+          y: yPpm * 0.0254,
+        };
+      }
+      return null;
+    }
+
+    offset += 12 + length;
+  }
+  return null;
+}
+
+function getJpegDpi(view) {
+  let offset = 2; // Skip SOI marker (FFD8)
+  while (offset + 4 < view.byteLength) {
+    if (view.getUint8(offset) !== 0xff) {
+      offset += 1;
+      continue;
+    }
+
+    const marker = view.getUint8(offset + 1);
+    if (marker === 0xd9 || marker === 0xda) break; // EOI/SOS
+
+    const segmentLength = view.getUint16(offset + 2);
+    if (segmentLength < 2) break;
+
+    // APP0/JFIF segment can include pixel density information
+    if (marker === 0xe0 && offset + 2 + segmentLength <= view.byteLength) {
+      const ident = String.fromCharCode(
+        view.getUint8(offset + 4),
+        view.getUint8(offset + 5),
+        view.getUint8(offset + 6),
+        view.getUint8(offset + 7),
+        view.getUint8(offset + 8),
+      );
+
+      if (ident === "JFIF\0") {
+        const units = view.getUint8(offset + 11);
+        const xDensity = view.getUint16(offset + 12);
+        const yDensity = view.getUint16(offset + 14);
+
+        if (units === 1) return { x: xDensity, y: yDensity }; // dots per inch
+        if (units === 2)
+          return { x: xDensity * 2.54, y: yDensity * 2.54 }; // dots per cm
+        return null;
+      }
+    }
+
+    offset += 2 + segmentLength;
+  }
+  return null;
+}
+
+async function readImageDpi(file) {
+  if (!file) return null;
+  const type = (file.type || "").toLowerCase();
+  if (!type.includes("png") && !type.includes("jpeg") && !type.includes("jpg")) {
+    return null;
+  }
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const view = new DataView(buffer);
+
+    if (type.includes("png")) return getPngDpi(view);
+    if (type.includes("jpeg") || type.includes("jpg")) return getJpegDpi(view);
+    return null;
+  } catch (err) {
+    console.warn("Could not read image DPI metadata:", err);
+    return null;
+  }
+}
 
 const UploadPanel = ({
   onUpload,
@@ -20,6 +115,7 @@ const UploadPanel = ({
   const [isHovering, setIsHovering] = useState(false);
   const [bgPos, setBgPos] = useState("center");
   const [progress, setProgress] = useState(0);
+  const [dpiWarning, setDpiWarning] = useState(null);
   const interactionBlockProps = useDisableInteractions({ enabled: true });
 
   // Disable zoom while loading so hover doesn't trigger zoom
@@ -55,12 +151,26 @@ const UploadPanel = ({
 
   const ZOOM_SCALE = 2.5;
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
+  const handleSelectedFile = async (file) => {
     if (!file) return;
 
     const url = URL.createObjectURL(file);
     onUpload(url, file);
+
+    const dpi = await readImageDpi(file);
+    if (
+      dpi &&
+      (dpi.x < PRINT_DPI_THRESHOLD || dpi.y < PRINT_DPI_THRESHOLD)
+    ) {
+      setDpiWarning(dpi);
+    } else {
+      setDpiWarning(null);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    void handleSelectedFile(file);
 
     e.target.value = "";
   };
@@ -75,8 +185,7 @@ const UploadPanel = ({
 
     const file = e.dataTransfer?.files[0];
     if (file && file.type.startsWith("image/")) {
-      const url = URL.createObjectURL(file);
-      onUpload(url, file);
+      void handleSelectedFile(file);
     }
   };
 
@@ -106,6 +215,14 @@ const UploadPanel = ({
           Upload an image to customize your product
         </p>
       </div>
+      <DpiWarningModal
+        dpi={dpiWarning}
+        onClose={() => setDpiWarning(null)}
+        onUploadNew={() => {
+          setDpiWarning(null);
+          handleClick();
+        }}
+      />
 
       {/* Remove BG Toggle */}
       {imageUrl && (
