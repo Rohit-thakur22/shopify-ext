@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState, memo } from "react";
 import { Stage, Layer, Image, Rect, Group } from "react-konva";
 import useImage from "use-image";
 import useDisableInteractions from "../hooks/useDisableInteractions";
+import PrintInfoCard from "./PrintInfoCard";
 
 /**
  * DesignViewerPixelPerfect - Pixel-perfect mockup rendering with Konva.js
@@ -500,6 +501,8 @@ function DesignViewerPixelPerfect({
             </label>
           </div>
         </div>
+
+        <PrintInfoCard />
       </div>
     </div>
   );

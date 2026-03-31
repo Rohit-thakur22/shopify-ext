@@ -4,7 +4,8 @@ import { AlertTriangle, X } from "lucide-react";
 
 const DpiWarningModal = ({ dpi, onClose, onUploadNew }) => {
   if (!dpi || typeof document === "undefined") return null;
-  const portalTarget = document.getElementById("cloth-editor-app") || document.body;
+  // Mount to body so viewport-fixed overlay is centered on full storefront viewport.
+  const portalTarget = document.body;
 
   return createPortal(
     <div
