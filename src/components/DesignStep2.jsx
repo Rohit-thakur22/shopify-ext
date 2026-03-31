@@ -21,8 +21,9 @@ import { Canvas, Image, filters } from "fabric";
 import {
   PRICE_PER_SQIN,
   PRECUT_FEE,
-  DISCOUNT_TIERS,
+  DISCOUNT_TABLE_ROWS,
   PLACEMENT_CATALOGUE,
+  getDiscountTierBySubtotal,
 } from "../lib/pricingConfig";
 import useDisableInteractions from "../hooks/useDisableInteractions";
 
@@ -131,8 +132,16 @@ function usePricingEngine(config, selectedPlacements, preCut) {
       totalQty += pQty; rawTotal += pRaw;
     });
 
-    const tier = DISCOUNT_TIERS.find((t) => totalQty >= t.minQty && totalQty <= t.maxQty) ?? DISCOUNT_TIERS[0];
-    return { totalQty, rawTotal, discountedTotal: rawTotal * (1 - tier.discount), tier, perPlacement };
+    const tier = getDiscountTierBySubtotal(rawTotal);
+    const nextTier = DISCOUNT_TABLE_ROWS.find((t) => rawTotal < t.minSubtotal) ?? null;
+    return {
+      totalQty,
+      rawTotal,
+      discountedTotal: rawTotal * (1 - tier.discount),
+      tier,
+      nextTier,
+      perPlacement,
+    };
   }, [config, selectedPlacements, preCut]);
 }
 
@@ -771,16 +780,22 @@ const PlacementSection = memo(function PlacementSection({
 // ─────────────────────────────────────────────────────────────────────────────
 // PricingSummary
 // ─────────────────────────────────────────────────────────────────────────────
-const PricingSummary = memo(function PricingSummary({ totalQty, rawTotal, discountedTotal, tier }) {
+const PricingSummary = memo(function PricingSummary({
+  totalQty,
+  rawTotal,
+  discountedTotal,
+  tier,
+  nextTier,
+}) {
   if (totalQty === 0) return null;
   return (
     <div style={{ marginTop: "1rem", borderRadius: "0.75rem", border: "1px solid #e2e8f0", overflow: "hidden" }}>
-      {tier.discount === 0 && totalQty < 15 && (
+      {nextTier && (
         <div style={{ padding: "0.5rem 0.875rem", backgroundColor: "#fdf4ff", borderBottom: "1px solid #e9d5ff", fontSize: "0.75rem", color: "#7b2cbf", display: "flex", alignItems: "center", gap: "0.375rem" }}>
           <svg style={{ width: "0.875rem", height: "0.875rem", flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
             <path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.73V17a1 1 0 001 1h6a1 1 0 001-1v-2.27A7 7 0 0012 2z"/>
           </svg>
-          Add {15 - totalQty} more transfer{15 - totalQty !== 1 ? "s" : ""} to unlock 20% volume discount
+          Add ${fmt(nextTier.minSubtotal - rawTotal)} more to unlock {nextTier.getLabel}
         </div>
       )}
       {tier.discount > 0 && (
@@ -959,6 +974,7 @@ const DesignStep2 = ({
         rawTotal={pricing.rawTotal}
         discountedTotal={pricing.discountedTotal}
         tier={pricing.tier}
+        nextTier={pricing.nextTier}
       />
 
       <p style={{ margin: "0.75rem 0 0", fontSize: "0.75rem", color: "#9ca3af", textAlign: "center" }}>

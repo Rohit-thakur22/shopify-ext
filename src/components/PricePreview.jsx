@@ -1,4 +1,8 @@
 import React, { useMemo } from "react";
+import {
+  DISCOUNT_TABLE_ROWS,
+  getDiscountTierBySubtotal,
+} from "../lib/pricingConfig";
 
 // Price formatter: explicit en-US to avoid locale issues (e.g. 9:17 vs 9.17)
 const formatPrice = (n) =>
@@ -11,15 +15,6 @@ const formatPrice = (n) =>
 
 const PRICE_PER_SQIN = 0.0416; // size-based price: (width * height) * 0.0416
 const PRECUT_FEE = 0.24;
-
-// Volume discount tiers
-const DISCOUNT_TIERS = [
-  { minQty: 1, maxQty: 14, discount: 0, label: "1-14 pcs" },
-  { minQty: 15, maxQty: 49, discount: 0.2, label: "15-49 pcs (20% off)" },
-  { minQty: 50, maxQty: 99, discount: 0.3, label: "50-99 pcs (30% off)" },
-  { minQty: 100, maxQty: 249, discount: 0.4, label: "100-249 pcs (40% off)" },
-  { minQty: 250, maxQty: Infinity, discount: 0.5, label: "250+ pcs (50% off)" },
-];
 
 const PricePreview = ({
   width,
@@ -44,11 +39,8 @@ const PricePreview = ({
     // Calculate unit price (before discount) — base comes from variant when in theme
     const unitPrice = basePrice + areaPrice + preCutPrice;
 
-    // Find applicable discount tier
-    const tier =
-      DISCOUNT_TIERS.find(
-        (t) => quantity >= t.minQty && quantity <= t.maxQty,
-      ) || DISCOUNT_TIERS[0];
+    const subtotal = unitPrice * quantity;
+    const tier = getDiscountTierBySubtotal(subtotal);
 
     // Apply discount
     const discountedUnitPrice = unitPrice * (1 - tier.discount);
@@ -64,7 +56,7 @@ const PricePreview = ({
       discountedUnitPrice,
       totalPrice,
       discount: tier.discount,
-      tierLabel: tier.label,
+      subtotal,
     };
   }, [width, height, preCut, quantity, basePrice]);
 
@@ -204,7 +196,65 @@ const PricePreview = ({
 
         {/* Volume discount info */}
         <div className="text-xs text-gray-500 text-center mt-2">
-          <p>💡 Order 15+ pieces for volume discounts up to 50% off</p>
+          {(() => {
+            const nextTier =
+              DISCOUNT_TABLE_ROWS.find(
+                (tier) => pricing.subtotal < tier.minSubtotal,
+              ) || null;
+            if (!nextTier) {
+              return (
+                <p
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.35rem",
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ color: "#059669", flexShrink: 0 }}
+                  >
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                  Highest discount tier unlocked (65% Off)
+                </p>
+              );
+            }
+            return (
+              <p
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: "#4f46e5", flexShrink: 0 }}
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8h.01" />
+                  <path d="M11 12h1v4h1" />
+                </svg>
+                Add ${formatPrice(nextTier.minSubtotal - pricing.subtotal)} more
+                to unlock {nextTier.getLabel}
+              </p>
+            );
+          })()}
         </div>
       </div>
     </div>

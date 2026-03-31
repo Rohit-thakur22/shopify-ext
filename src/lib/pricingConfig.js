@@ -1,12 +1,25 @@
 export const PRICE_PER_SQIN = 0.0416;
 export const PRECUT_FEE = 0.24;
 export const DISCOUNT_TIERS = [
-  { minQty: 1, maxQty: 14, discount: 0 },
-  { minQty: 15, maxQty: 49, discount: 0.2 },
-  { minQty: 50, maxQty: 99, discount: 0.3 },
-  { minQty: 100, maxQty: 249, discount: 0.4 },
-  { minQty: 250, maxQty: Infinity, discount: 0.5 },
+  { minSubtotal: 0, discount: 0, buyLabel: "$0.00+", getLabel: "No discount" },
+  { minSubtotal: 49, discount: 0.1, buyLabel: "$49.00+", getLabel: "10% Off" },
+  { minSubtotal: 99, discount: 0.15, buyLabel: "$99.00+", getLabel: "15% Off" },
+  { minSubtotal: 150, discount: 0.2, buyLabel: "$150.00+", getLabel: "20% Off" },
+  { minSubtotal: 250, discount: 0.3, buyLabel: "$250.00+", getLabel: "30% Off" },
+  { minSubtotal: 500, discount: 0.4, buyLabel: "$500.00+", getLabel: "40% Off" },
+  { minSubtotal: 1000, discount: 0.5, buyLabel: "$1,000.00+", getLabel: "50% Off" },
+  { minSubtotal: 1750, discount: 0.6, buyLabel: "$1,750.00+", getLabel: "60% Off" },
+  { minSubtotal: 3800, discount: 0.65, buyLabel: "$3,800.00+", getLabel: "65% Off" },
 ];
+
+export const DISCOUNT_TABLE_ROWS = DISCOUNT_TIERS.filter((tier) => tier.discount > 0);
+
+export function getDiscountTierBySubtotal(subtotal = 0) {
+  return DISCOUNT_TIERS.reduce((applied, tier) => {
+    if (subtotal >= tier.minSubtotal) return tier;
+    return applied;
+  }, DISCOUNT_TIERS[0]);
+}
 
 export const PLACEMENT_CATALOGUE = [
   {

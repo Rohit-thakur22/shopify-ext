@@ -3,6 +3,7 @@ import { Stage, Layer, Image, Rect, Group } from "react-konva";
 import useImage from "use-image";
 import useDisableInteractions from "../hooks/useDisableInteractions";
 import PrintInfoCard from "./PrintInfoCard";
+import { DISCOUNT_TABLE_ROWS } from "../lib/pricingConfig";
 
 /**
  * DesignViewerPixelPerfect - Pixel-perfect mockup rendering with Konva.js
@@ -348,6 +349,7 @@ function DesignViewerPixelPerfect({
 }) {
   const [localTintColor, setLocalTintColor] = useState("#6b7280");
   const [hoveredIndex, setHoveredIndex] = useState(null);
+  const [showDiscounts, setShowDiscounts] = useState(false);
   const tintColor =
     propTintColor !== undefined ? propTintColor : localTintColor;
 
@@ -500,6 +502,73 @@ function DesignViewerPixelPerfect({
               />
             </label>
           </div>
+        </div>
+        <div style={{ marginTop: "0.75rem" }}>
+          <button
+            type="button"
+            onClick={() => setShowDiscounts((prev) => !prev)}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              border: "1px solid #c7d2fe",
+              background: "#ffffff",
+              borderRadius: "0.625rem",
+              padding: "0.5rem 0.625rem",
+              fontSize: "0.8125rem",
+              fontWeight: 700,
+              color: "#3730a3",
+              cursor: "pointer",
+            }}
+          >
+            <span>Show Discounts</span>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ transform: showDiscounts ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" ,marginLeft: "0.25rem",marginTop: "0.25rem"}}
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+          {showDiscounts && (
+            <div
+              style={{
+                marginTop: "0.5rem",
+                border: "1px solid #e5e7eb",
+                borderRadius: "0.625rem",
+                overflow: "hidden",
+                backgroundColor: "#ffffff",
+              }}
+            >
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
+                <thead>
+                  <tr style={{ backgroundColor: "#f9fafb", color: "#374151" }}>
+                    <th style={{ textAlign: "left", padding: "0.45rem 0.65rem", fontWeight: 700 }}>Buy</th>
+                    <th style={{ textAlign: "left", padding: "0.45rem 0.65rem", fontWeight: 700 }}>Get</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {DISCOUNT_TABLE_ROWS.map((row) => (
+                    <tr key={row.minSubtotal} style={{ borderTop: "1px solid #f3f4f6" }}>
+                      <td style={{ padding: "0.45rem 0.65rem", color: "#111827", fontWeight: 600 }}>
+                        {row.buyLabel}
+                      </td>
+                      <td style={{ padding: "0.45rem 0.65rem", color: "#374151" }}>
+                        {row.getLabel}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <PrintInfoCard />

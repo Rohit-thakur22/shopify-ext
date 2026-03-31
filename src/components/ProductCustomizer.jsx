@@ -746,7 +746,7 @@ const ProductCustomizer = ({
               Upload your design, choose placement &amp; sizes, and add to cart
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.625rem", marginTop: "0.875rem" }}>
-              {["Free Art Review", "HD Print Quality", "Volume Discounts Up to 50%"].map((b) => (
+              {["Free Art Review", "HD Print Quality", "Volume Discounts Up to 65%"].map((b) => (
                 <span key={b} style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", fontSize: "0.75rem", fontWeight: 600, color: "rgba(255,255,255,0.95)", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)", padding: "0.25rem 0.625rem", borderRadius: "9999px" }}>
                   <svg style={{ width: "0.7rem", height: "0.7rem", flexShrink: 0 }} fill="none" stroke="#fde68a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
                     <path d="M20 6L9 17l-5-5"/>
