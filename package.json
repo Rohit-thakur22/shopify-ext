@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:shopify": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npm run build && vercel --prod"
   },
   "dependencies": {
     "fabric": "^6.7.1",

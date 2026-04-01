@@ -622,6 +622,39 @@
   background-color: #fafafa !important;
 }
 
+/* Smart sticky column in two-column product customizer layouts.
+   position:sticky requires EVERY ancestor up to the scroll root to have
+   overflow:visible. Shopify themes routinely set overflow:hidden on wrappers
+   like .shopify-section, #MainContent, main, #shopify-section-template, etc.
+   We force overflow:visible on known ancestors and on #cloth-editor-app itself. */
+@media (min-width: 769px) {
+  #cloth-editor-app .product-customizer .sticky {
+    position: -webkit-sticky !important;
+    position: sticky !important;
+    top: 20px !important;
+    height: fit-content !important;
+    max-height: none !important;
+    overflow: visible !important;
+    align-self: flex-start !important;
+  }
+
+  /* Force overflow:visible on the app root and common Shopify theme ancestors */
+  #cloth-editor-app,
+  #cloth-editor-app .product-customizer {
+    overflow: visible !important;
+  }
+  .shopify-section:has(#cloth-editor-app),
+  main:has(#cloth-editor-app),
+  #MainContent:has(#cloth-editor-app),
+  #main:has(#cloth-editor-app),
+  #shopify-section-template--*:has(#cloth-editor-app),
+  .page-width:has(#cloth-editor-app),
+  .main-content:has(#cloth-editor-app),
+  .content-for-layout:has(#cloth-editor-app) {
+    overflow: visible !important;
+  }
+}
+
 /* animate-spin (used in loaders) */
 #cloth-editor-app .animate-spin {
   animation: spin 1s linear infinite !important;

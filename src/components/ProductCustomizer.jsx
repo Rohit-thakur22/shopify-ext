@@ -6,6 +6,7 @@ import DesignStep2 from "./DesignStep2";
 import PreCutCheckbox from "./PreCutCheckbox";
 import AddToCartButton from "./AddToCartButton";
 import useScopedShortcutProtection from "../hooks/useScopedShortcutProtection";
+import useStickyColumn from "../hooks/useStickyColumn";
 
 // API endpoints
 const API_BASE = "https://highquality.allgovjobs.com/backend";
@@ -143,6 +144,22 @@ const ProductCustomizer = ({
   const cartSectionRef = useRef(null);
   const [cartIsSticky, setCartIsSticky] = useState(false);
   const customizerRootRef = useRef(null);
+  const columnsContainerRef = useRef(null);
+  const leftColumnRef = useRef(null);
+  const rightColumnRef = useRef(null);
+
+  const { recalculate } = useStickyColumn({
+    parentRef: columnsContainerRef,
+    leftRef: leftColumnRef,
+    rightRef: rightColumnRef,
+  });
+
+  useEffect(() => {
+    const t1 = setTimeout(recalculate, 80);
+    const t2 = setTimeout(recalculate, 300);
+    const t3 = setTimeout(recalculate, 800);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [imageUrl, quantity, loadingRemoveBg, loadingEnhance, loadingDesignFromUrl, recalculate]);
 
   useScopedShortcutProtection(customizerRootRef, { enabled: true });
 
@@ -759,10 +776,16 @@ const ProductCustomizer = ({
         </div>
 
         {/* ── Two-column layout ── */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "1.25rem", alignItems: "flex-start" }}>
+        <div
+          ref={columnsContainerRef}
+          style={{ display: "flex", flexWrap: "wrap", gap: "1.25rem", alignItems: "flex-start" }}
+        >
 
           {/* ── Left column: live preview (narrower) ── */}
-          <div style={{ flex: "1 1 38%", minWidth: "min(100%, 280px)" }}>
+          <div
+            ref={leftColumnRef}
+            style={{ flex: "1 1 38%", minWidth: "min(100%, 280px)" }}
+          >
             <div style={{ backgroundColor: "#ffffff", borderRadius: R, border: "1px solid #e9d5ff", padding: "1.125rem", boxShadow: SH }}>
               <DesignViewerPixelPerfect
                 imageUrl={imageUrl}
@@ -774,7 +797,11 @@ const ProductCustomizer = ({
           </div>
 
           {/* ── Right column: 3 steps (wider) ── */}
-          <div className="add-to-cart-mobile-spacer" style={{ flex: "1 1 56%", minWidth: "min(100%, 280px)", display: "flex", flexDirection: "column", gap: "1.125rem" }}>
+          <div
+            ref={rightColumnRef}
+            className="add-to-cart-mobile-spacer"
+            style={{ flex: "1 1 56%", minWidth: "min(100%, 280px)", display: "flex", flexDirection: "column", gap: "1.125rem" }}
+          >
 
             {/* ── STEP 1: Upload your design ── */}
             <div style={{ borderRadius: R, border: "1px solid #d8b4fe", background: "linear-gradient(145deg, rgba(123,44,191,0.04) 0%, #ffffff 100%)", padding: "1.375rem", boxShadow: SH }}>
