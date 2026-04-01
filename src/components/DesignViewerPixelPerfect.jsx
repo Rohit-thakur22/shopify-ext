@@ -349,7 +349,7 @@ function DesignViewerPixelPerfect({
 }) {
   const [localTintColor, setLocalTintColor] = useState("#6b7280");
   const [hoveredIndex, setHoveredIndex] = useState(null);
-  const [showDiscounts, setShowDiscounts] = useState(false);
+  const [showDiscounts, setShowDiscounts] = useState(true);
   const tintColor =
     propTintColor !== undefined ? propTintColor : localTintColor;
 
