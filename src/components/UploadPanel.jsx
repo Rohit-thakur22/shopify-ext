@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from "react";
 import UploadLoader from "./UploadLoader";
 import DpiWarningModal from "./DpiWarningModal";
+import UploadChoiceModal from "./UploadChoiceModal";
+import PremadeDesignsModal from "./PremadeDesignsModal";
 import { Camera, Trash } from "lucide-react";
 import useDisableInteractions from "../hooks/useDisableInteractions";
 
@@ -116,6 +118,8 @@ const UploadPanel = ({
   const [bgPos, setBgPos] = useState("center");
   const [progress, setProgress] = useState(0);
   const [dpiWarning, setDpiWarning] = useState(null);
+  const [showChoiceModal, setShowChoiceModal] = useState(false);
+  const [showPremadeModal, setShowPremadeModal] = useState(false);
   const interactionBlockProps = useDisableInteractions({ enabled: true });
 
   // Disable zoom while loading so hover doesn't trigger zoom
@@ -176,7 +180,15 @@ const UploadPanel = ({
   };
 
   const handleClick = () => {
+    setShowChoiceModal(true);
+  };
+
+  const handleDeviceUpload = () => {
     fileInputRef.current?.click();
+  };
+
+  const handlePremadeSelect = (blobUrl, file) => {
+    onUpload(blobUrl, file);
   };
 
   const handleDrop = (e) => {
@@ -612,6 +624,21 @@ const UploadPanel = ({
         accept="image/*"
         onChange={handleFileChange}
         className="hidden"
+      />
+
+      {/* Upload Choice Modal */}
+      <UploadChoiceModal
+        open={showChoiceModal}
+        onClose={() => setShowChoiceModal(false)}
+        onChooseDevice={handleDeviceUpload}
+        onChoosePremade={() => setShowPremadeModal(true)}
+      />
+
+      {/* Pre-made Designs Modal */}
+      <PremadeDesignsModal
+        open={showPremadeModal}
+        onClose={() => setShowPremadeModal(false)}
+        onSelectImage={handlePremadeSelect}
       />
     </div>
   );

@@ -159,7 +159,7 @@ const AddToCartButton = ({
   };
 
   const addToCart = async () => {
-    if (!isValid || isLoading || disabled) return;
+    if (!isValid || !isServerUrl || isLoading || disabled) return;
     setIsLoading(true);
     setError(null);
     setSuccess(false);
@@ -227,7 +227,7 @@ const AddToCartButton = ({
   };
 
   // ── Button appearance ──────────────────────────────────────────────────────
-  const isDisabled = !isValid || isLoading || disabled;
+  const isDisabled = !isValid || !isServerUrl || isLoading || disabled;
 
   const btnBg = success
     ? "#059669"
