@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import UploadLoader from "./UploadLoader";
 import DpiWarningModal from "./DpiWarningModal";
 import UploadChoiceModal from "./UploadChoiceModal";
@@ -297,18 +298,35 @@ const UploadPanel = ({
         <div className="space-y-4">
           {/* Image preview with zoom */}
           <div className="relative">
-            {/* Zoom preview pane (shows on hover; disabled while loading) */}
-            {zoomActive && (
-              <div
-                className="absolute -left-[230px] top-0 hidden lg:block w-52 h-52 border border-gray-300 rounded-lg bg-white shadow-lg z-50"
-                style={{
-                  backgroundImage: `url(${imageUrl}), url('https://shopify-ext.vercel.app/assets/transparent-bg.webp')`,
-                  backgroundRepeat: "no-repeat, repeat",
-                  backgroundSize: `${ZOOM_SCALE * 100}%, auto`,
-                  backgroundPosition: `${bgPos}, 0 0`,
-                }}
-                aria-hidden
-              />
+            {/* Zoom preview pane — portalled to body so it renders above all Shopify layers */}
+            {zoomActive && typeof document !== "undefined" && containerRef.current && createPortal(
+              (() => {
+                const rect = containerRef.current.getBoundingClientRect();
+                return (
+                  <div
+                    className="hidden lg:block"
+                    style={{
+                      position: "fixed",
+                      top: rect.top,
+                      left: rect.left - 220,
+                      width: "13rem",
+                      height: "13rem",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "0.5rem",
+                      backgroundColor: "#fff",
+                      boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)",
+                      zIndex: 99999,
+                      pointerEvents: "none",
+                      backgroundImage: `url(${imageUrl}), url('https://shopify-ext.vercel.app/assets/transparent-bg.webp')`,
+                      backgroundRepeat: "no-repeat, repeat",
+                      backgroundSize: `${ZOOM_SCALE * 100}%, auto`,
+                      backgroundPosition: `${bgPos}, 0 0`,
+                    }}
+                    aria-hidden
+                  />
+                );
+              })(),
+              document.body,
             )}
 
             {/* Main preview */}

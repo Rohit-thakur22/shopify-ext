@@ -628,10 +628,8 @@
    like .shopify-section, #MainContent, main, #shopify-section-template, etc.
    We force overflow:visible on known ancestors and on #cloth-editor-app itself. */
 @media (min-width: 769px) {
+  /* position & top are managed dynamically by useStickyColumn (bidirectional pin) */
   #cloth-editor-app .product-customizer .sticky {
-    position: -webkit-sticky !important;
-    position: sticky !important;
-    top: 20px !important;
     height: fit-content !important;
     max-height: none !important;
     overflow: visible !important;
