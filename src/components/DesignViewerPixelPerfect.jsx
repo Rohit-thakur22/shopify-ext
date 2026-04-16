@@ -346,6 +346,8 @@ function DesignViewerPixelPerfect({
   tintColor: propTintColor,
   onColorChange,
   assetUrls = {},
+  designWidth = 0,
+  designHeight = 0,
 }) {
   const [localTintColor, setLocalTintColor] = useState("#6b7280");
   const [hoveredIndex, setHoveredIndex] = useState(null);
@@ -443,6 +445,33 @@ function DesignViewerPixelPerfect({
                 <span style={{ fontSize: "0.75rem", fontWeight: 600, marginTop: "0.5rem", color: hoveredIndex === index ? "#4f46e5" : "#6b7280", transition: "color 0.2s" }}>
                   {PRODUCT_LABELS[index]}
                 </span>
+                {(() => {
+                  const hasUserSize = designWidth >= 0.5 && designHeight >= 0.5;
+                  const sizeLabel = hasUserSize
+                    ? `${designWidth}" × ${designHeight}"`
+                    : SIZES[index];
+                  return (
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: "0.2rem",
+                      marginTop: "0.1875rem",
+                      fontSize: "0.625rem", fontWeight: 600,
+                      color: hasUserSize
+                        ? "#7b2cbf"
+                        : (hoveredIndex === index ? "#7b2cbf" : "#9ca3af"),
+                      backgroundColor: hasUserSize
+                        ? "rgba(123,44,191,0.1)"
+                        : (hoveredIndex === index ? "rgba(123,44,191,0.08)" : "rgba(0,0,0,0.03)"),
+                      padding: "0.125rem 0.375rem", borderRadius: "0.25rem",
+                      border: hasUserSize ? "1px solid rgba(123,44,191,0.2)" : "1px solid transparent",
+                      transition: "all 0.2s",
+                    }}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+                      </svg>
+                      {sizeLabel}
+                    </span>
+                  );
+                })()}
               </div>
             </div>
           ))}

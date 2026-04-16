@@ -4,7 +4,7 @@ import UploadLoader from "./UploadLoader";
 import DpiWarningModal from "./DpiWarningModal";
 import UploadChoiceModal from "./UploadChoiceModal";
 import PremadeDesignsModal from "./PremadeDesignsModal";
-import { Camera, Trash } from "lucide-react";
+import { Camera, Trash, AlertTriangle } from "lucide-react";
 import useDisableInteractions from "../hooks/useDisableInteractions";
 
 const PRINT_DPI_THRESHOLD = 300;
@@ -131,6 +131,15 @@ const UploadPanel = ({
       setIsHovering(false);
   }, [loadingRemoveBg, loadingEnhance, loadingDesignFromUrl]);
 
+  // Clear DPI warning after enhance completes (image quality improved)
+  const prevLoadingEnhanceRef = useRef(loadingEnhance);
+  useEffect(() => {
+    if (prevLoadingEnhanceRef.current && !loadingEnhance) {
+      setDpiWarning(null);
+    }
+    prevLoadingEnhanceRef.current = loadingEnhance;
+  }, [loadingEnhance]);
+
   // Realistic progress 0 → 95% with ease-out (fast start, slow near end); jump to 100% when done. Never sticks at one value.
   useEffect(() => {
     if (!loadingRemoveBg && !loadingEnhance) {
@@ -231,6 +240,7 @@ const UploadPanel = ({
       <DpiWarningModal
         dpi={dpiWarning}
         onClose={() => setDpiWarning(null)}
+        onEnhance={onEnhance}
         onUploadNew={() => {
           setDpiWarning(null);
           handleClick();
@@ -382,6 +392,34 @@ const UploadPanel = ({
 
             {/* Note: keep media interactions blocked intentionally for protection */}
           </div>
+
+          {/* Persistent DPI quality badge */}
+          {dpiWarning && !loadingRemoveBg && !loadingEnhance && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: "0.5rem",
+              padding: "0.5rem 0.75rem", borderRadius: "0.5rem",
+              backgroundColor: "#fffbeb", border: "1px solid #fde68a",
+            }}>
+              <AlertTriangle size={14} style={{ color: "#d97706", flexShrink: 0 }} />
+              <span style={{ fontSize: "0.75rem", color: "#92400e", flex: 1 }}>
+                Low resolution ({Math.round(dpiWarning.x)} x {Math.round(dpiWarning.y)} DPI) — may not print clearly.
+              </span>
+              {onEnhance && (
+                <button
+                  type="button"
+                  onClick={onEnhance}
+                  style={{
+                    fontSize: "0.75rem", fontWeight: 700, color: "#ffffff",
+                    backgroundColor: "#f59e0b", border: "none",
+                    padding: "0.25rem 0.625rem", borderRadius: "0.375rem",
+                    cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                  }}
+                >
+                  Enhance
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Action buttons */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>

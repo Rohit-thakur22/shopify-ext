@@ -792,6 +792,8 @@ const ProductCustomizer = ({
                 tintColor={tintColor}
                 onColorChange={handleColorChange}
                 assetUrls={assetUrls}
+                designWidth={width}
+                designHeight={height}
               />
             </div>
           </div>

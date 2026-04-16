@@ -597,7 +597,7 @@ const SizeSlider = memo(function SizeSlider({ sizes, predefined, onSetPredefined
 // ─────────────────────────────────────────────────────────────────────────────
 // CustomSizeRow
 // ─────────────────────────────────────────────────────────────────────────────
-const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onRemove, preCut }) {
+const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onRemove, preCut, imgPixels }) {
   const w   = toNum(row.width);
   const h   = toNum(row.height);
   const qty = toInt(row.quantity);
@@ -653,6 +653,37 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onRemove, pre
           {total > 0 ? `$${fmt(total)}` : "—"}
         </span>
       </div>
+      {/* Dynamic DPI warning: show when selected size exceeds image resolution at 300 DPI */}
+      {(() => {
+        if (!imgPixels || imgPixels.w === 0 || w < 0.5 || h < 0.5) return null;
+        const dpiW = imgPixels.w / w;
+        const dpiH = imgPixels.h / h;
+        const effectiveDpi = Math.min(dpiW, dpiH);
+        if (effectiveDpi >= 300) return null;
+        const severity = effectiveDpi < 150 ? "high" : "medium";
+        return (
+          <div style={{
+            width: "100%", display: "flex", alignItems: "center", gap: "0.375rem",
+            padding: "0.375rem 0.5rem", borderRadius: "0.375rem",
+            backgroundColor: severity === "high" ? "#fef2f2" : "#fffbeb",
+            border: `1px solid ${severity === "high" ? "#fecaca" : "#fde68a"}`,
+            marginTop: "0.125rem",
+          }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={severity === "high" ? "#dc2626" : "#d97706"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span style={{
+              fontSize: "0.6875rem", color: severity === "high" ? "#991b1b" : "#92400e",
+              lineHeight: 1.3,
+            }}>
+              {severity === "high"
+                ? `Image may appear blurry at this size (~${Math.round(effectiveDpi)} DPI). Use Enhance or reduce dimensions.`
+                : `Print quality may be reduced at this size (~${Math.round(effectiveDpi)} DPI). Consider using Enhance.`
+              }
+            </span>
+          </div>
+        );
+      })()}
     </div>
   );
 });
@@ -666,7 +697,7 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onRemove, pre
 // ─────────────────────────────────────────────────────────────────────────────
 const PlacementSection = memo(function PlacementSection({
   placement, pConfig, onSetPredefined, onAddCustom,
-  onUpdateCustom, onRemoveCustom, onClose, preCut, pricingData,
+  onUpdateCustom, onRemoveCustom, onClose, preCut, pricingData, imgPixels,
 }) {
   const isCustomPlacement = placement.id === "custom";
   const hasPredefined     = placement.sizes.length > 0;
@@ -729,6 +760,7 @@ const PlacementSection = memo(function PlacementSection({
                   onUpdate={(field, value) => onUpdateCustom(row.id, field, value)}
                   onRemove={() => onRemoveCustom(row.id)}
                   preCut={preCut}
+                  imgPixels={imgPixels}
                 />
               ))}
             </div>
@@ -857,6 +889,16 @@ const DesignStep2 = ({
   const [state, dispatch] = useReducer(reducer, null, makeInitialState);
   const pricing = usePricingEngine(state.config, state.selectedPlacements, preCut);
 
+  // Track uploaded image's pixel dimensions for dynamic DPI checks
+  const [imgPixels, setImgPixels] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    if (!imageUrl) { setImgPixels({ w: 0, h: 0 }); return; }
+    const img = new window.Image();
+    img.onload = () => setImgPixels({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => setImgPixels({ w: 0, h: 0 });
+    img.src = imageUrl;
+  }, [imageUrl]);
+
   // ── Auto-fill custom size dimensions from the uploaded image ────────────────
   const autoFillDims = useCallback(() => {
     if (!imageUrl) return;
@@ -962,6 +1004,7 @@ const DesignStep2 = ({
                 onClose={() => togglePlacement(pid)}
                 preCut={preCut}
                 pricingData={pricing.perPlacement[pid]}
+                imgPixels={imgPixels}
               />
             );
           })}

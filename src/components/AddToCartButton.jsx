@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { PLACEMENT_CATALOGUE } from "../lib/pricingConfig";
+import BlankApparelModal from "./BlankApparelModal";
 
 const toNum = (v, fallback = 0) => {
   const n = parseFloat(v);
@@ -84,6 +85,30 @@ const AddToCartButton = ({
   const [error,     setError]     = useState(null);
   const [success,   setSuccess]   = useState(false);
   const [hovered,   setHovered]   = useState(false);
+  const [showBlankApparelModal, setShowBlankApparelModal] = useState(false);
+  const [blankApparelProducts, setBlankApparelProducts]   = useState([]);
+
+  // ── Prefetch blank apparel vendor list + products on mount ─────────────
+  // By the time the user finishes configuring and clicks Add to Cart,
+  // this data is already cached — zero extra latency on the hot path.
+  const baCache = useRef(null);
+  const baReady = useRef(null);
+
+  useEffect(() => {
+    baReady.current = fetch("/apps/customscale-app/blank-apparel-info", {
+      headers: { Accept: "application/json" },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) {
+          baCache.current = {
+            vendorSet: new Set((data.vendors || []).map((v) => v.toLowerCase())),
+            products: data.products || [],
+          };
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const isServerUrl = imageUrl && typeof imageUrl === "string" && !imageUrl.startsWith("blob:");
   const lineRequests = buildLineRequests(sizeBreakdown, preCut);
@@ -218,7 +243,43 @@ const AddToCartButton = ({
       }
 
       setSuccess(true);
-      setTimeout(() => { window.location.href = "/cart"; }, 500);
+
+      // ── Fast blank-apparel check (uses prefetched cache) ─────────────
+      // Only /cart.js is fetched here (same-origin, ~50ms).
+      // Vendor list was prefetched on mount → instant Set lookup.
+      // 3s timeout ensures we never hang.
+      try {
+        // Ensure prefetch settled (usually a no-op — it started on mount)
+        await baReady.current;
+        const cached = baCache.current;
+
+        if (!cached || cached.vendorSet.size === 0) {
+          setTimeout(() => { window.location.href = "/cart"; }, 500);
+        } else {
+          const cartData = await Promise.race([
+            fetch("/cart.js", { headers: { Accept: "application/json" } })
+              .then((r) => (r.ok ? r.json() : null)),
+            new Promise((resolve) => setTimeout(() => resolve(null), 3000)),
+          ]);
+
+          if (!cartData) {
+            setTimeout(() => { window.location.href = "/cart"; }, 500);
+          } else {
+            const hasBA = (cartData.items || []).some(
+              (item) => item.vendor && cached.vendorSet.has(item.vendor.toLowerCase()),
+            );
+
+            if (hasBA) {
+              setTimeout(() => { window.location.href = "/cart"; }, 500);
+            } else {
+              setBlankApparelProducts(cached.products);
+              setShowBlankApparelModal(true);
+            }
+          }
+        }
+      } catch {
+        setTimeout(() => { window.location.href = "/cart"; }, 500);
+      }
     } catch (err) {
       setError(err.message || "Failed to add to cart. Please try again.");
     } finally {
@@ -267,6 +328,7 @@ const AddToCartButton = ({
 
   const getLabel = () => {
     if (isLoading) return "Adding…";
+    if (success && showBlankApparelModal) return "Added to Cart!";
     if (success)   return "Added! Redirecting…";
     return "Add to Cart";
   };
@@ -321,6 +383,19 @@ const AddToCartButton = ({
 
       {/* Spinner keyframes */}
       <style>{`@keyframes hq-spin { to { transform: rotate(360deg); } }`}</style>
+
+      {/* Blank Apparel upsell modal */}
+      <BlankApparelModal
+        open={showBlankApparelModal}
+        products={blankApparelProducts}
+        onClose={() => {
+          setShowBlankApparelModal(false);
+        }}
+        onGoToCart={() => {
+          setShowBlankApparelModal(false);
+          window.location.href = "/cart";
+        }}
+      />
     </div>
   );
 };
