@@ -60,14 +60,32 @@ const FIXED_DESIGN_AREAS = [
 
 const PRODUCT_KEYS = ["tshirt", "hoodie", "polo", "cap", "apron", "tote"];
 const PRODUCT_LABELS = ["T-Shirt", "Hoodie", "Polo Shirt", "Cap", "Apron", "Tote Bag"];
-const SIZES = [
-  '11" x 11"',
-  '4" x 2.5"',
-  '3.5" x 3.5"',
-  '7" x 7"',
-  '9" x 9"',
-  '5" x 5"',
+
+/**
+ * Reference print area in real-world inches for each garment.
+ * Used both for the default size badge and for proportionally scaling
+ * the user's selected design relative to the garment — so a 4" design
+ * looks visibly smaller than a 20" design on the same shirt.
+ *
+ * `FIXED_DESIGN_AREAS` represents the pixel footprint of these reference sizes.
+ */
+const PRINTABLE_AREAS_INCHES = [
+  { w: 11, h: 11 },   // tshirt
+  { w: 4, h: 2.5 },   // hoodie
+  { w: 3.5, h: 3.5 }, // polo
+  { w: 7, h: 7 },     // cap
+  { w: 9, h: 9 },     // apron
+  { w: 5, h: 5 },     // tote
 ];
+
+const SIZES = PRINTABLE_AREAS_INCHES.map(({ w, h }) => `${w}" x ${h}"`);
+
+/**
+ * Minimum visible scale so very small designs (e.g., 1" × 1" on a shirt)
+ * remain recognisable in the mockup thumbnail. Below this the preview
+ * wouldn't convey anything useful to the customer.
+ */
+const MIN_DESIGN_SCALE_FRACTION = 0.2;
 
 const COLOR_SWATCHES = [
   "#f0e7e7",
@@ -132,6 +150,8 @@ const SingleProductPreview = memo(function SingleProductPreview({
   shadowUrl,
   productIndex,
   tintColor,
+  designWidth = 0,
+  designHeight = 0,
 }) {
   const containerRef = React.useRef(null);
   const [scaleFactor, setScaleFactor] = React.useState(0.4);
@@ -166,15 +186,32 @@ const SingleProductPreview = memo(function SingleProductPreview({
   const designScale = useMemo(() => {
     if (!designImage || !garmentImage) return 0;
     const area = FIXED_DESIGN_AREAS[productIndex] ?? FIXED_DESIGN_AREAS[0];
-    // Allowed pixel dimensions inside the garment
-    const allowedWidth = garmentWidth * area.maxWidth;
-    const allowedHeight = garmentHeight * area.maxHeight;
-    // Scale to fit both axes — whichever is more constrained wins
+    const ref = PRINTABLE_AREAS_INCHES[productIndex] ?? PRINTABLE_AREAS_INCHES[0];
+
+    // Pixel footprint of the garment's *reference* print area (what
+    // FIXED_DESIGN_AREAS represents in real-world inches — see ref.w × ref.h).
+    const refPxWidth = garmentWidth * area.maxWidth;
+    const refPxHeight = garmentHeight * area.maxHeight;
+
+    // If the user has entered real dimensions, scale the design proportionally
+    // relative to the reference. Otherwise fall back to "fit to reference area"
+    // so the default preview still looks right before any selection.
+    const hasUserSize = designWidth >= 0.5 && designHeight >= 0.5;
+    const sizeFraction = hasUserSize
+      ? Math.max(
+          MIN_DESIGN_SCALE_FRACTION,
+          Math.min(1, Math.max(designWidth / ref.w, designHeight / ref.h)),
+        )
+      : 1;
+
+    const allowedWidth = refPxWidth * sizeFraction;
+    const allowedHeight = refPxHeight * sizeFraction;
+
+    // Always constrain by the tighter axis so the design never overflows
     const scaleToFitWidth = allowedWidth / designImage.width;
     const scaleToFitHeight = allowedHeight / designImage.height;
-    // Always use the smaller of the two so the image NEVER overflows the cloth
     return Math.min(scaleToFitWidth, scaleToFitHeight);
-  }, [designImage, garmentImage, garmentWidth, garmentHeight, productIndex]);
+  }, [designImage, garmentImage, garmentWidth, garmentHeight, productIndex, designWidth, designHeight]);
 
   const designX = useMemo(() => {
     if (productIndex === 2) {
@@ -440,6 +477,8 @@ function DesignViewerPixelPerfect({
                     shadowUrl={product.shadowUrl}
                     productIndex={index}
                     tintColor={tintColor}
+                    designWidth={designWidth}
+                    designHeight={designHeight}
                   />
                 </div>
                 <span style={{ fontSize: "0.75rem", fontWeight: 600, marginTop: "0.5rem", color: hoveredIndex === index ? "#4f46e5" : "#6b7280", transition: "color 0.2s" }}>
