@@ -79,14 +79,11 @@ const CLOTH_ROUTES = [
   "/products/sublimation-by-size",
   "/products/dtf-transfers-by-size",
 ];
-/** Routes that render the 6 hard-good product previews (UV-DTF). */
-const UVDTF_ROUTES = ["/products/uv-dtf-by-size"];
-
 /** Detect which preview set to render based on the current route. */
 function getPreviewSet() {
   if (typeof window === "undefined") return "cloths";
-  const path = window.location.pathname || "";
-  if (UVDTF_ROUTES.some((r) => path.includes(r))) return "uvdtf";
+  const path = (window.location.pathname || "").toLowerCase();
+  if (path.includes("uv")) return "uvdtf";
   if (CLOTH_ROUTES.some((r) => path.includes(r))) return "cloths";
   return "cloths";
 }

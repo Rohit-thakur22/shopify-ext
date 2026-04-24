@@ -126,7 +126,7 @@ const ProductCustomizer = ({
   // Hide Step 2 (placement/size slider) on UV-DTF route — users pick size elsewhere.
   const isUvDtfRoute =
     typeof window !== "undefined" &&
-    (window.location.pathname || "").includes("uv-dtf-by-size");
+    (window.location.pathname || "").toLowerCase().includes("uv");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -425,7 +425,10 @@ const ProductCustomizer = ({
 
   // Handle Remove Background
   const handleRemoveBg = useCallback(async (type = 1) => {
-    if (!currentImageBlob || loadingRemoveBg) return;
+    // "Remove BG Again" (type=2) should re-run against the original upload,
+    // not whatever is currently displayed (which may already be processed/enhanced).
+    const sourceBlob = type === 2 ? (originalImageBlob || currentImageBlob) : currentImageBlob;
+    if (!sourceBlob || loadingRemoveBg) return;
 
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
@@ -433,7 +436,7 @@ const ProductCustomizer = ({
     try {
       setLoadingRemoveBg(true);
       const form = new FormData();
-      form.append("image", currentImageBlob);
+      form.append("image", sourceBlob);
       form.append("type", String(type));
 
       const res = await fetch(REMOVE_BG_ENDPOINT, {
@@ -488,7 +491,7 @@ const ProductCustomizer = ({
     } finally {
       setLoadingRemoveBg(false);
     }
-  }, [currentImageBlob, loadingRemoveBg, updateDimensionsFromImageUrl]);
+  }, [currentImageBlob, originalImageBlob, loadingRemoveBg, updateDimensionsFromImageUrl]);
 
   // Handle Enhance Image
   const handleEnhance = useCallback(async () => {

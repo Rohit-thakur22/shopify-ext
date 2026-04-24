@@ -21,6 +21,8 @@ import { Canvas, Image, filters } from "fabric";
 import {
   PRICE_PER_SQIN,
   PRECUT_FEE,
+  BASE_FEE_PER_UNIT,
+  MIN_UNIT_PRICE,
   DISCOUNT_TABLE_ROWS,
   PLACEMENT_CATALOGUE,
   getDiscountTierBySubtotal,
@@ -119,13 +121,16 @@ function usePricingEngine(config, selectedPlacements, preCut) {
       if (!pData || !pc) return;
 
       let pQty = 0, pRaw = 0;
+      // Round per-unit to cents first (matches Shopify's line-item math: unit × qty).
+      const toCents = (u) => Math.round(u * 100) / 100;
+      const priceUnit = (area) => toCents(Math.max(MIN_UNIT_PRICE, BASE_FEE_PER_UNIT + area * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0)));
       pData.sizes.forEach((sz) => {
         const qty = toInt(pc.predefined[sz.id]);
-        if (qty > 0) { const u = sz.w * sz.h * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0); pQty += qty; pRaw += u * qty; }
+        if (qty > 0) { const u = priceUnit(sz.w * sz.h); pQty += qty; pRaw += u * qty; }
       });
       pc.customSizes.forEach((row) => {
         const w = toNum(row.width), h = toNum(row.height), qty = toInt(row.quantity);
-        if (w >= 0.5 && h >= 0.5 && qty > 0) { const u = w * h * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0); pQty += qty; pRaw += u * qty; }
+        if (w >= 0.5 && h >= 0.5 && qty > 0) { const u = priceUnit(w * h); pQty += qty; pRaw += u * qty; }
       });
 
       perPlacement[pid] = { qty: pQty, raw: pRaw };
@@ -473,7 +478,7 @@ const QuantityStepper = memo(function QuantityStepper({ value, onChange, min = 0
 // ─────────────────────────────────────────────────────────────────────────────
 const SizeCard = memo(function SizeCard({ size, qty, onQtyChange, preCut }) {
   const active    = qty > 0;
-  const unitPrice = size.w * size.h * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0);
+  const unitPrice = Math.round(Math.max(MIN_UNIT_PRICE, BASE_FEE_PER_UNIT + size.w * size.h * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0)) * 100) / 100;
   return (
     <div className="hq-size-card" style={{
       flexShrink: 0,
@@ -601,7 +606,7 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onRemove, pre
   const w   = toNum(row.width);
   const h   = toNum(row.height);
   const qty = toInt(row.quantity);
-  const unit  = w >= 0.5 && h >= 0.5 ? w * h * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0) : 0;
+  const unit  = w >= 0.5 && h >= 0.5 ? Math.round(Math.max(MIN_UNIT_PRICE, BASE_FEE_PER_UNIT + w * h * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0)) * 100) / 100 : 0;
   const total = unit * qty;
 
   const MAX_IN = 22.5;

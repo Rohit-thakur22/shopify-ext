@@ -1,4 +1,33 @@
-export const PRICE_PER_SQIN = 0.0416;
+/** Route-aware per-sq-in rate: UV-DTF = $0.12, sublimation = $0.0259, DTF = $0.0414. */
+function resolvePricePerSqIn() {
+  if (typeof window === "undefined") return 0.0414;
+  const path = (window.location.pathname || "").toLowerCase();
+  if (path.includes("uv")) return 0.12;
+  if (path.includes("sublimation")) return 0.0259;
+  if (path.includes("dtf")) return 0.0414;
+  return 0.0414;
+}
+
+/** Route-aware per-unit base fee added on top of (area × rate). Only UV-DTF has one. */
+function resolveBaseFee() {
+  if (typeof window === "undefined") return 0;
+  const path = (window.location.pathname || "").toLowerCase();
+  if (path.includes("uv")) return 0.122;
+  return 0;
+}
+
+/** Route-aware per-unit minimum price (acts as a floor on small sizes). */
+function resolveMinUnitPrice() {
+  if (typeof window === "undefined") return 0;
+  const path = (window.location.pathname || "").toLowerCase();
+  if (path.includes("uv")) return 0;       // UV uses base fee model
+  if (path.includes("dtf")) return 1.52;   // DTF minimum per transfer
+  return 0;
+}
+
+export const PRICE_PER_SQIN = resolvePricePerSqIn();
+export const BASE_FEE_PER_UNIT = resolveBaseFee();
+export const MIN_UNIT_PRICE = resolveMinUnitPrice();
 export const PRECUT_FEE = 0.24;
 export const DISCOUNT_TIERS = [
   { minSubtotal: 0, discount: 0, buyLabel: "$0.00+", getLabel: "No discount" },

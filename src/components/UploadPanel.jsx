@@ -172,6 +172,12 @@ const UploadPanel = ({
     const url = URL.createObjectURL(file);
     onUpload(url, file);
 
+    // DPI check only applies to raster images; PDFs are rasterized server-side.
+    if (file.type === "application/pdf") {
+      setDpiWarning(null);
+      return;
+    }
+
     const dpi = await readImageDpi(file);
     if (
       dpi &&
@@ -207,7 +213,10 @@ const UploadPanel = ({
     e.stopPropagation();
 
     const file = e.dataTransfer?.files[0];
-    if (file && file.type.startsWith("image/")) {
+    if (
+      file &&
+      (file.type.startsWith("image/") || file.type === "application/pdf")
+    ) {
       void handleSelectedFile(file);
     }
   };
@@ -517,16 +526,14 @@ const UploadPanel = ({
                 onClick={onRemoveBgAgain}
                 disabled={isAnyLoading}
                 style={{
-                  flex: "1 1 140px",
+                  flex: "1 1 200px",
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: "0.5rem",
-                  padding: "0.875rem 1.25rem",
+                  gap: "0.625rem",
+                  padding: "0.75rem 1rem",
                   borderRadius: "0.75rem",
-                  fontSize: "1rem",
-                  fontWeight: "700",
-                  letterSpacing: "0.025em",
+                  letterSpacing: "0.01em",
                   transition: "all 0.3s ease",
                   border: "none",
                   outline: "none",
@@ -540,6 +547,7 @@ const UploadPanel = ({
                     ? "none"
                     : "0 4px 12px rgba(147,51,234,0.3)",
                   minWidth: 0,
+                  textAlign: "center",
                 }}
                 onMouseEnter={(e) => {
                   if (!isAnyLoading) {
@@ -558,42 +566,89 @@ const UploadPanel = ({
                   }
                 }}
               >
-                {loadingRemoveBg ? (
-                  <svg
-                    className="animate-spin h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
+                <span
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    textAlign: "center",
+                    lineHeight: 1.15,
+                    minWidth: 0,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.5rem",
+                      fontSize: "0.9375rem",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "100%",
+                    }}
                   >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 13l-3 3m0 0l-3-3m3 3V8a4 4 0 014-4h7m-3 14l3-3m0 0l3 3m-3-3v5"
-                    />
-                  </svg>
-                )}
-                <span>{loadingRemoveBg ? "Removing..." : "🪄 Remove BG Again"}</span>
+                    {loadingRemoveBg ? (
+                      <svg
+                        className="animate-spin"
+                        width="18"
+                        height="18"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        style={{ flexShrink: 0 }}
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        width="18"
+                        height="18"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        style={{ flexShrink: 0 }}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v6h6M20 20v-6h-6M20 9A8 8 0 006.3 5.7L4 10m16 4l-2.3 4.3A8 8 0 014 15"
+                        />
+                      </svg>
+                    )}
+                    {loadingRemoveBg ? "Removing…" : "AI BG Remover"}
+                  </span>
+                  {!loadingRemoveBg && (
+                    <span
+                      style={{
+                        fontSize: "0.6875rem",
+                        fontWeight: 500,
+                        opacity: 0.85,
+                        marginTop: "0.125rem",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: "100%",
+                      }}
+                    >
+                      High-quality, precise background removal
+                    </span>
+                  )}
+                </span>
               </button>
             )}
           </div>
@@ -765,7 +820,7 @@ const UploadPanel = ({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,application/pdf"
         onChange={handleFileChange}
         className="hidden"
       />
