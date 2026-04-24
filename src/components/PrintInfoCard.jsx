@@ -164,7 +164,7 @@ const PrintInfoCard = () => {
             margin: "0.5rem 0 0",
             padding: 0,
             listStyle: "none",
-            fontSize: "0.8125rem",
+            fontSize: "0.9375rem",
             color: "#4b5563",
             lineHeight: 1.65,
           }}
@@ -255,7 +255,7 @@ const PrintInfoCard = () => {
               <p
                 style={{
                   margin: 0,
-                  fontSize: "0.79rem",
+                  fontSize: "0.9rem",
                   fontWeight: 600,
                   lineHeight: 1.35,
                   color: "#1f2937",
@@ -266,7 +266,7 @@ const PrintInfoCard = () => {
               <p
                 style={{
                   margin: "0.28rem 0 0",
-                  fontSize: "0.76rem",
+                  fontSize: "0.86rem",
                   color: step.color,
                   fontWeight: 600,
                 }}
@@ -315,7 +315,7 @@ const PrintInfoCard = () => {
               >
                 <step.Icon size={12} style={{ color: step.color, flexShrink: 0 }} />
               </span>
-              <span style={{ fontSize: "0.78rem", color: "#4b5563", lineHeight: 1.45 }}>
+              <span style={{ fontSize: "0.88rem", color: "#4b5563", lineHeight: 1.45 }}>
                 <strong style={{ color: "#111827", fontWeight: 600 }}>
                   {step.label}:
                 </strong>{" "}
@@ -337,7 +337,7 @@ const PrintInfoCard = () => {
           <p
             style={{
               margin: 0,
-              fontSize: "0.75rem",
+              fontSize: "0.85rem",
               fontWeight: 700,
               color: "#374151",
             }}
@@ -349,7 +349,7 @@ const PrintInfoCard = () => {
               margin: "0.35rem 0 0",
               padding: 0,
               listStyle: "none",
-              fontSize: "0.76rem",
+              fontSize: "0.86rem",
               color: "#4b5563",
               lineHeight: 1.55,
             }}

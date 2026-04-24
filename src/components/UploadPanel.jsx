@@ -105,6 +105,7 @@ const UploadPanel = ({
   onUpload,
   imageUrl,
   onEnhance,
+  onRemoveBgAgain,
   loadingRemoveBg = false,
   loadingEnhance = false,
   loadingDesignFromUrl = false,
@@ -508,6 +509,93 @@ const UploadPanel = ({
               )}
               <span>{loadingEnhance ? "Enhancing..." : "✨ Enhance"}</span>
             </button>
+
+            {/* Remove BG Again */}
+            {onRemoveBgAgain && (
+              <button
+                type="button"
+                onClick={onRemoveBgAgain}
+                disabled={isAnyLoading}
+                style={{
+                  flex: "1 1 140px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5rem",
+                  padding: "0.875rem 1.25rem",
+                  borderRadius: "0.75rem",
+                  fontSize: "1rem",
+                  fontWeight: "700",
+                  letterSpacing: "0.025em",
+                  transition: "all 0.3s ease",
+                  border: "none",
+                  outline: "none",
+                  cursor: isAnyLoading ? "not-allowed" : "pointer",
+                  backgroundColor: loadingRemoveBg ? "#f3f4f6" : "#9333ea",
+                  backgroundImage: loadingRemoveBg
+                    ? "none"
+                    : "linear-gradient(to right, #9333ea, #7c3aed)",
+                  color: loadingRemoveBg ? "#9ca3af" : "#ffffff",
+                  boxShadow: loadingRemoveBg
+                    ? "none"
+                    : "0 4px 12px rgba(147,51,234,0.3)",
+                  minWidth: 0,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isAnyLoading) {
+                    e.currentTarget.style.backgroundImage =
+                      "linear-gradient(to right, #7e22ce, #6d28d9)";
+                    e.currentTarget.style.boxShadow =
+                      "0 8px 20px rgba(147,51,234,0.4)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isAnyLoading) {
+                    e.currentTarget.style.backgroundImage =
+                      "linear-gradient(to right, #9333ea, #7c3aed)";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 12px rgba(147,51,234,0.3)";
+                  }
+                }}
+              >
+                {loadingRemoveBg ? (
+                  <svg
+                    className="animate-spin h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 13l-3 3m0 0l-3-3m3 3V8a4 4 0 014-4h7m-3 14l3-3m0 0l3 3m-3-3v5"
+                    />
+                  </svg>
+                )}
+                <span>{loadingRemoveBg ? "Removing..." : "🪄 Remove BG Again"}</span>
+              </button>
+            )}
           </div>
 
           {/* Secondary actions */}

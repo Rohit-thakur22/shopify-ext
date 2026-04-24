@@ -123,6 +123,11 @@ const ProductCustomizer = ({
   );
   const [urlTitle, setUrlTitle] = useState("");
 
+  // Hide Step 2 (placement/size slider) on UV-DTF route — users pick size elsewhere.
+  const isUvDtfRoute =
+    typeof window !== "undefined" &&
+    (window.location.pathname || "").includes("uv-dtf-by-size");
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -311,6 +316,7 @@ const ProductCustomizer = ({
           setLoadingRemoveBg(true);
           const form = new FormData();
           form.append("image", file);
+          form.append("type", "1");
 
           const res = await fetch(REMOVE_BG_ENDPOINT, {
             method: "POST",
@@ -418,7 +424,7 @@ const ProductCustomizer = ({
   }, []);
 
   // Handle Remove Background
-  const handleRemoveBg = useCallback(async () => {
+  const handleRemoveBg = useCallback(async (type = 1) => {
     if (!currentImageBlob || loadingRemoveBg) return;
 
     abortControllerRef.current?.abort();
@@ -428,6 +434,7 @@ const ProductCustomizer = ({
       setLoadingRemoveBg(true);
       const form = new FormData();
       form.append("image", currentImageBlob);
+      form.append("type", String(type));
 
       const res = await fetch(REMOVE_BG_ENDPOINT, {
         method: "POST",
@@ -492,6 +499,12 @@ const ProductCustomizer = ({
     const signal = abortControllerRef.current.signal;
     try {
       setLoadingEnhance(true);
+
+      console.log(
+        "Enhance - Sending image URL:",
+        processedServerUrl || originalServerUrl || "(blob)"
+      );
+
       const form = new FormData();
       form.append("image", currentImageBlob);
 
@@ -547,7 +560,10 @@ const ProductCustomizer = ({
     } finally {
       setLoadingEnhance(false);
     }
-  }, [currentImageBlob, loadingEnhance]);
+  }, [currentImageBlob, loadingEnhance, processedServerUrl, originalServerUrl]);
+
+  // Handle Remove Background Again (re-run with type=2 for a second pass)
+  const handleRemoveBgAgain = useCallback(() => handleRemoveBg(2), [handleRemoveBg]);
 
   // Handle color change from DesignViewer
   const handleColorChange = useCallback((color) => {
@@ -612,6 +628,7 @@ const ProductCustomizer = ({
           try {
             const form = new FormData();
             form.append("image", originalImageBlob);
+            form.append("type", "1");
             const res = await fetch(REMOVE_BG_ENDPOINT, {
               method: "POST",
               body: form,
@@ -817,6 +834,7 @@ const ProductCustomizer = ({
                 onUpload={handleImageUpload}
                 imageUrl={imageUrl}
                 onEnhance={handleEnhance}
+                onRemoveBgAgain={handleRemoveBgAgain}
                 loadingRemoveBg={loadingRemoveBg}
                 loadingEnhance={loadingEnhance}
                 loadingDesignFromUrl={loadingDesignFromUrl}
@@ -841,6 +859,7 @@ const ProductCustomizer = ({
                 tintColor={tintColor}
                 assetUrls={assetUrls}
                 onChange={handleStep2Change}
+                hidePlacementSelector={isUvDtfRoute}
               />
 
               {/* ── Pre-cut: last section of Step 2 ── */}

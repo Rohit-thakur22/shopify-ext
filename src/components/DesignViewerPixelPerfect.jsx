@@ -58,8 +58,38 @@ const FIXED_DESIGN_AREAS = [
   { maxWidth: 0.36, maxHeight: 0.34 }, // tote
 ];
 
-const PRODUCT_KEYS = ["tshirt", "hoodie", "polo", "cap", "apron", "tote"];
-const PRODUCT_LABELS = ["T-Shirt", "Hoodie", "Polo Shirt", "Cap", "Apron", "Tote Bag"];
+/** UV-DTF product design areas. Order: bottle, mug, tumbler, laptop, carBack, keychain */
+const UVDTF_DESIGN_AREAS = [
+  { maxWidth: 0.14, maxHeight: 0.18 }, // bottle (narrow label)
+  { maxWidth: 0.24, maxHeight: 0.22 }, // mug (body)
+  { maxWidth: 0.18, maxHeight: 0.22 }, // tumbler
+  { maxWidth: 0.34, maxHeight: 0.18 }, // laptop lid
+  { maxWidth: 0.40, maxHeight: 0.22 }, // car back panel
+  { maxWidth: 0.16, maxHeight: 0.16 }, // keychain disc (smaller)
+];
+
+const CLOTH_KEYS = ["tshirt", "hoodie", "polo", "cap", "apron", "tote"];
+const CLOTH_LABELS = ["T-Shirt", "Hoodie", "Polo Shirt", "Cap", "Apron", "Tote Bag"];
+
+const UVDTF_KEYS = ["bottle", "mug", "tumbler", "laptop", "carBack", "keychain"];
+const UVDTF_LABELS = ["Bottle", "Mug", "Tumbler", "Laptop", "Car Back", "Keychain"];
+
+/** Routes that render the 6 cloth previews. */
+const CLOTH_ROUTES = [
+  "/products/sublimation-by-size",
+  "/products/dtf-transfers-by-size",
+];
+/** Routes that render the 6 hard-good product previews (UV-DTF). */
+const UVDTF_ROUTES = ["/products/uv-dtf-by-size"];
+
+/** Detect which preview set to render based on the current route. */
+function getPreviewSet() {
+  if (typeof window === "undefined") return "cloths";
+  const path = window.location.pathname || "";
+  if (UVDTF_ROUTES.some((r) => path.includes(r))) return "uvdtf";
+  if (CLOTH_ROUTES.some((r) => path.includes(r))) return "cloths";
+  return "cloths";
+}
 
 /**
  * Reference print area in real-world inches for each garment.
@@ -78,7 +108,18 @@ const PRINTABLE_AREAS_INCHES = [
   { w: 5, h: 5 },     // tote
 ];
 
+/** UV-DTF reference print areas (inches) matching UVDTF_DESIGN_AREAS index order. */
+const UVDTF_PRINTABLE_AREAS_INCHES = [
+  { w: 3, h: 4 },    // bottle
+  { w: 3.5, h: 3 },  // mug
+  { w: 3, h: 4 },    // tumbler
+  { w: 6, h: 3 },    // laptop
+  { w: 8, h: 4 },    // car back
+  { w: 2, h: 2 },    // keychain
+];
+
 const SIZES = PRINTABLE_AREAS_INCHES.map(({ w, h }) => `${w}" x ${h}"`);
+const UVDTF_SIZES = UVDTF_PRINTABLE_AREAS_INCHES.map(({ w, h }) => `${w}" x ${h}"`);
 
 /**
  * Minimum visible scale so very small designs (e.g., 1" × 1" on a shirt)
@@ -101,7 +142,7 @@ const COLOR_SWATCHES = [
 ];
 
 const CDN = "https://shopify-ext.vercel.app";
-const DEFAULT_ASSETS = {
+const CLOTH_ASSETS = {
   tshirt: `${CDN}/assets/6-cloths/full-front.webp`,
   hoodie: `${CDN}/assets/6-cloths/Hoodie_White.webp`,
   polo: `${CDN}/assets/6-cloths/polo-tshirt.webp`,
@@ -109,14 +150,45 @@ const DEFAULT_ASSETS = {
   apron: `${CDN}/assets/6-cloths/Apron_White.webp`,
   tote: `${CDN}/assets/6-cloths/Tote_White.png`,
 };
+const UVDTF_ASSETS = {
+  bottle: `${CDN}/assets/6-products/bottle.webp`,
+  mug: `${CDN}/assets/6-products/mug.webp`,
+  tumbler: `${CDN}/assets/6-products/tumbler.webp`,
+  laptop: `${CDN}/assets/6-products/laptop.webp`,
+  carBack: `${CDN}/assets/6-products/car-back.webp`,
+  keychain: `${CDN}/assets/6-products/keychain.webp`,
+};
 
-function getGarmentUrl(assetUrls, productKey, color) {
+function getPreviewConfig(previewSet) {
+  if (previewSet === "uvdtf") {
+    return {
+      set: "uvdtf",
+      keys: UVDTF_KEYS,
+      labels: UVDTF_LABELS,
+      assets: UVDTF_ASSETS,
+      designAreas: UVDTF_DESIGN_AREAS,
+      printableInches: UVDTF_PRINTABLE_AREAS_INCHES,
+      sizes: UVDTF_SIZES,
+    };
+  }
+  return {
+    set: "cloths",
+    keys: CLOTH_KEYS,
+    labels: CLOTH_LABELS,
+    assets: CLOTH_ASSETS,
+    designAreas: FIXED_DESIGN_AREAS,
+    printableInches: PRINTABLE_AREAS_INCHES,
+    sizes: SIZES,
+  };
+}
+
+function getGarmentUrl(assetUrls, productKey, color, assets) {
   const colorVariants = assetUrls?.colorVariants;
   if (colorVariants?.[color]?.[productKey]) {
     return colorVariants[color][productKey];
   }
   // Always use Vercel CDN — ignore Shopify assetUrls for garments
-  return DEFAULT_ASSETS[productKey];
+  return assets[productKey];
 }
 
 /**
@@ -136,6 +208,32 @@ function getDesignOffsetFactor(index) {
   }
 }
 
+/** Y offset factor for UV-DTF products (fraction of garment height). */
+function getUvdtfOffsetFactor(index) {
+  switch (index) {
+    case 0: return 0.02;   // bottle — around label
+    case 1: return 0.0;    // mug — center
+    case 2: return 0.00;   // tumbler — body (below straw)
+    case 3: return 0.0;    // laptop — center of lid
+    case 4: return -0.09;  // car back — up a bit toward the window
+    case 5: return 0.18;   // keychain — lower on the disc
+    default: return 0.0;
+  }
+}
+
+/** X offset factor for UV-DTF products (fraction of garment width). Negative = left, positive = right. */
+function getUvdtfXOffsetFactor(index) {
+  switch (index) {
+    case 0: return -0.02;  // bottle
+    case 1: return -0.04;  // mug (shift off the handle side)
+    case 2: return -0.055;  // tumbler
+    case 3: return -0.02;  // laptop
+    case 4: return -0.0;  // car back
+    case 5: return -0.0;  // keychain
+    default: return -0.02;
+  }
+}
+
 /**
  * Single product preview: one Konva Stage with layered images.
  * Memoized to avoid unnecessary rerenders when parent updates.
@@ -152,6 +250,7 @@ const SingleProductPreview = memo(function SingleProductPreview({
   tintColor,
   designWidth = 0,
   designHeight = 0,
+  previewSet = "cloths",
 }) {
   const containerRef = React.useRef(null);
   const [scaleFactor, setScaleFactor] = React.useState(0.4);
@@ -185,8 +284,10 @@ const SingleProductPreview = memo(function SingleProductPreview({
 
   const designScale = useMemo(() => {
     if (!designImage || !garmentImage) return 0;
-    const area = FIXED_DESIGN_AREAS[productIndex] ?? FIXED_DESIGN_AREAS[0];
-    const ref = PRINTABLE_AREAS_INCHES[productIndex] ?? PRINTABLE_AREAS_INCHES[0];
+    const areas = previewSet === "uvdtf" ? UVDTF_DESIGN_AREAS : FIXED_DESIGN_AREAS;
+    const printable = previewSet === "uvdtf" ? UVDTF_PRINTABLE_AREAS_INCHES : PRINTABLE_AREAS_INCHES;
+    const area = areas[productIndex] ?? areas[0];
+    const ref = printable[productIndex] ?? printable[0];
 
     // Pixel footprint of the garment's *reference* print area (what
     // FIXED_DESIGN_AREAS represents in real-world inches — see ref.w × ref.h).
@@ -211,22 +312,29 @@ const SingleProductPreview = memo(function SingleProductPreview({
     const scaleToFitWidth = allowedWidth / designImage.width;
     const scaleToFitHeight = allowedHeight / designImage.height;
     return Math.min(scaleToFitWidth, scaleToFitHeight);
-  }, [designImage, garmentImage, garmentWidth, garmentHeight, productIndex, designWidth, designHeight]);
+  }, [designImage, garmentImage, garmentWidth, garmentHeight, productIndex, designWidth, designHeight, previewSet]);
 
   const designX = useMemo(() => {
-    if (productIndex === 2) {
+    // Polo chest-logo offset only applies to the cloths set (index 2 = polo).
+    if (previewSet === "cloths" && productIndex === 2) {
       return STAGE_WIDTH / 2 + garmentWidth * POLO_OFFSET_X;
     }
+    if (previewSet === "uvdtf") {
+      return STAGE_WIDTH / 2 + garmentWidth * getUvdtfXOffsetFactor(productIndex);
+    }
     return STAGE_WIDTH / 2;
-  }, [garmentWidth, productIndex]);
+  }, [garmentWidth, productIndex, previewSet]);
 
   const designY = useMemo(() => {
-    if (productIndex === 2) {
+    if (previewSet === "cloths" && productIndex === 2) {
       return STAGE_HEIGHT / 2 + garmentHeight * POLO_OFFSET_Y;
     }
-    const factor = getDesignOffsetFactor(productIndex);
+    const factor =
+      previewSet === "uvdtf"
+        ? getUvdtfOffsetFactor(productIndex)
+        : getDesignOffsetFactor(productIndex);
     return STAGE_HEIGHT / 2 + garmentHeight * factor;
-  }, [garmentHeight, productIndex]);
+  }, [garmentHeight, productIndex, previewSet]);
 
   return (
     <div
@@ -392,15 +500,17 @@ function DesignViewerPixelPerfect({
   const tintColor =
     propTintColor !== undefined ? propTintColor : localTintColor;
 
+  const previewConfig = useMemo(() => getPreviewConfig(getPreviewSet()), []);
+
   const products = useMemo(() => {
-    return PRODUCT_KEYS.map((key, index) => ({
+    return previewConfig.keys.map((key, index) => ({
       key,
-      garmentUrl: getGarmentUrl(assetUrls, key, tintColor),
-      size: SIZES[index],
+      garmentUrl: getGarmentUrl(assetUrls, key, tintColor, previewConfig.assets),
+      size: previewConfig.sizes[index],
       textureUrl: assetUrls[`${key}Texture`] || null,
       shadowUrl: assetUrls[`${key}Shadow`] || null,
     }));
-  }, [assetUrls, tintColor]);
+  }, [assetUrls, tintColor, previewConfig]);
 
   const changeColor = useCallback(
     (color) => {
@@ -479,16 +589,17 @@ function DesignViewerPixelPerfect({
                     tintColor={tintColor}
                     designWidth={designWidth}
                     designHeight={designHeight}
+                    previewSet={previewConfig.set}
                   />
                 </div>
                 <span style={{ fontSize: "0.75rem", fontWeight: 600, marginTop: "0.5rem", color: hoveredIndex === index ? "#4f46e5" : "#6b7280", transition: "color 0.2s" }}>
-                  {PRODUCT_LABELS[index]}
+                  {previewConfig.labels[index]}
                 </span>
                 {(() => {
                   const hasUserSize = designWidth >= 0.5 && designHeight >= 0.5;
                   const sizeLabel = hasUserSize
                     ? `${designWidth}" × ${designHeight}"`
-                    : SIZES[index];
+                    : previewConfig.sizes[index];
                   return (
                     <span style={{
                       display: "inline-flex", alignItems: "center", gap: "0.2rem",

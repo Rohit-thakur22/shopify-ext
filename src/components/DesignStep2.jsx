@@ -885,6 +885,7 @@ const DesignStep2 = ({
   tintColor = "#6b7280",
   assetUrls = {},
   onChange,
+  hidePlacementSelector = false,
 }) => {
   const [state, dispatch] = useReducer(reducer, null, makeInitialState);
   const pricing = usePricingEngine(state.config, state.selectedPlacements, preCut);
@@ -964,13 +965,15 @@ const DesignStep2 = ({
       </p>
 
       {/* Placement selector — Fabric.js canvas thumbnails */}
-      <PlacementSelector
-        selectedPlacements={state.selectedPlacements}
-        onToggle={togglePlacement}
-        imageUrl={imageUrl}
-        tintColor={tintColor}
-        assetUrls={assetUrls}
-      />
+      {!hidePlacementSelector && (
+        <PlacementSelector
+          selectedPlacements={state.selectedPlacements}
+          onToggle={togglePlacement}
+          imageUrl={imageUrl}
+          tintColor={tintColor}
+          assetUrls={assetUrls}
+        />
+      )}
 
       {/* Empty state */}
       {state.selectedPlacements.length === 0 && (
