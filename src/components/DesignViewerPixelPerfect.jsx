@@ -50,12 +50,12 @@ const TINT_OPACITY = 0.9;
  * Order: tshirt, hoodie, polo, cap, apron, tote
  */
 const FIXED_DESIGN_AREAS = [
-  { maxWidth: 0.28, maxHeight: 0.31 }, // tshirt
-  { maxWidth: 0.32, maxHeight: 0.35 }, // hoodie
-  { maxWidth: 0.16, maxHeight: 0.16 }, // polo (small chest area)
-  { maxWidth: 0.28, maxHeight: 0.2 }, // cap
-  { maxWidth: 0.28, maxHeight: 0.2 }, // apron
-  { maxWidth: 0.36, maxHeight: 0.34 }, // tote
+  { maxWidth: 0.4, maxHeight: 0.5 }, // tshirt
+  { maxWidth: 0.4, maxHeight: 0.4 }, // hoodie
+  { maxWidth: 0.16, maxHeight: 0.2 }, // polo (small chest area)
+  { maxWidth: 0.35, maxHeight: 0.35 }, // cap
+  { maxWidth: 0.32, maxHeight: 0.32 }, // apron
+  { maxWidth: 0.4, maxHeight: 0.4 }, // tote
 ];
 
 /** UV-DTF product design areas. Order: bottle, mug, tumbler, laptop, carBack, keychain */
@@ -97,8 +97,8 @@ function getPreviewSet() {
  * `FIXED_DESIGN_AREAS` represents the pixel footprint of these reference sizes.
  */
 const PRINTABLE_AREAS_INCHES = [
-  { w: 11, h: 11 },   // tshirt
-  { w: 4, h: 2.5 },   // hoodie
+  { w: 8, h: 8 },   // tshirt
+  { w: 4, h: 2.8 },   // hoodie
   { w: 3.5, h: 3.5 }, // polo
   { w: 7, h: 7 },     // cap
   { w: 9, h: 9 },     // apron
@@ -201,7 +201,7 @@ function getDesignOffsetFactor(index) {
     case 5:
       return -0.04; // tote
     default:
-      return -0.04; // tshirt, hoodie, polo
+      return -0.09; // tshirt, hoodie, polo
   }
 }
 
@@ -279,36 +279,55 @@ const SingleProductPreview = memo(function SingleProductPreview({
   const garmentWidth = garmentImage ? garmentImage.width * scale : 0;
   const garmentHeight = garmentImage ? garmentImage.height * scale : 0;
 
-  const designScale = useMemo(() => {
-    if (!designImage || !garmentImage) return 0;
-    const areas = previewSet === "uvdtf" ? UVDTF_DESIGN_AREAS : FIXED_DESIGN_AREAS;
+  /**
+   * designLayout — express the customer's selected real-world W × H as an
+   * independent bounding box (in mockup pixels) with the uploaded design
+   * fitted inside it preserving the image's own aspect ratio.
+   *
+   * Width and height use SEPARATE inch-to-pixel ratios so single-axis edits
+   * (e.g. only changing height) actually move the box on screen — the
+   * previous single-scale formula collapsed both axes into one factor and
+   * height-only changes had no visible effect.
+   */
+  const designLayout = useMemo(() => {
+    if (!designImage || !garmentImage) return null;
+    const areas     = previewSet === "uvdtf" ? UVDTF_DESIGN_AREAS : FIXED_DESIGN_AREAS;
     const printable = previewSet === "uvdtf" ? UVDTF_PRINTABLE_AREAS_INCHES : PRINTABLE_AREAS_INCHES;
     const area = areas[productIndex] ?? areas[0];
-    const ref = printable[productIndex] ?? printable[0];
+    const ref  = printable[productIndex] ?? printable[0];
 
-    // Pixel footprint of the garment's *reference* print area (what
-    // FIXED_DESIGN_AREAS represents in real-world inches — see ref.w × ref.h).
-    const refPxWidth = garmentWidth * area.maxWidth;
+    const refPxWidth  = garmentWidth  * area.maxWidth;
     const refPxHeight = garmentHeight * area.maxHeight;
 
-    // If the user has entered real dimensions, scale the design proportionally
-    // relative to the reference. Otherwise fall back to "fit to reference area"
-    // so the default preview still looks right before any selection.
     const hasUserSize = designWidth >= 0.5 && designHeight >= 0.5;
-    const sizeFraction = hasUserSize
-      ? Math.max(
-          MIN_DESIGN_SCALE_FRACTION,
-          Math.min(1, Math.max(designWidth / ref.w, designHeight / ref.h)),
-        )
-      : 1;
 
-    const allowedWidth = refPxWidth * sizeFraction;
-    const allowedHeight = refPxHeight * sizeFraction;
+    let boxW;
+    let boxH;
+    if (hasUserSize) {
+      // Independent inch-to-pixel ratio per axis
+      const pxPerInchW = refPxWidth  / ref.w;
+      const pxPerInchH = refPxHeight / ref.h;
+      boxW = designWidth  * pxPerInchW;
+      boxH = designHeight * pxPerInchH;
 
-    // Always constrain by the tighter axis so the design never overflows
-    const scaleToFitWidth = allowedWidth / designImage.width;
-    const scaleToFitHeight = allowedHeight / designImage.height;
-    return Math.min(scaleToFitWidth, scaleToFitHeight);
+      // Clamp to printable area, preserving the user's chosen aspect ratio
+      const overflow = Math.max(boxW / refPxWidth, boxH / refPxHeight, 1);
+      if (overflow > 1) { boxW /= overflow; boxH /= overflow; }
+
+      // Floor — keep the box visible at very small sizes
+      const minPx   = Math.min(refPxWidth, refPxHeight) * MIN_DESIGN_SCALE_FRACTION;
+      const undersz = Math.max(minPx / Math.max(boxW, 1), minPx / Math.max(boxH, 1), 1);
+      if (undersz > 1) { boxW *= undersz; boxH *= undersz; }
+    } else {
+      // No user size yet — fall back to filling the reference print area
+      boxW = refPxWidth;
+      boxH = refPxHeight;
+    }
+
+    // Fit the uploaded image inside the bounding box, preserving its aspect
+    const imageScale = Math.min(boxW / designImage.width, boxH / designImage.height);
+
+    return { boxW, boxH, imageScale, hasUserSize };
   }, [designImage, garmentImage, garmentWidth, garmentHeight, productIndex, designWidth, designHeight, previewSet]);
 
   const designX = useMemo(() => {
@@ -418,16 +437,30 @@ const SingleProductPreview = memo(function SingleProductPreview({
                 </Group>
               )}
 
-              {/* 3. User design layer - never filtered, stays crisp */}
-              {designImage && designUrl && designScale > 0 && (
+              {/* 3a. Selected-size bounding box (only when the customer has entered real dimensions) */}
+              {designLayout?.hasUserSize && designLayout.boxW > 0 && designLayout.boxH > 0 && (
+                <Rect
+                  x={designX - designLayout.boxW / 2}
+                  y={designY - designLayout.boxH / 2}
+                  width={designLayout.boxW}
+                  height={designLayout.boxH}
+                  stroke="#7b2cbf"
+                  strokeWidth={1}
+                  dash={[4, 3]}
+                  listening={false}
+                />
+              )}
+
+              {/* 3b. User design layer - never filtered, stays crisp */}
+              {designImage && designUrl && designLayout && designLayout.imageScale > 0 && (
                 <Image
                   image={designImage}
                   x={designX}
                   y={designY}
                   offsetX={designImage.width / 2}
                   offsetY={designImage.height / 2}
-                  scaleX={designScale}
-                  scaleY={designScale}
+                  scaleX={designLayout.imageScale}
+                  scaleY={designLayout.imageScale}
                   listening={false}
                 />
               )}
@@ -632,7 +665,7 @@ function DesignViewerPixelPerfect({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
               </svg>
             </span>
-            Garment Color
+            Color
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
             {COLOR_SWATCHES.map((color) => (

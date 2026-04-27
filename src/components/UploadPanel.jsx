@@ -516,7 +516,7 @@ const UploadPanel = ({
                   />
                 </svg>
               )}
-              <span>{loadingEnhance ? "Enhancing..." : "✨ Enhance"}</span>
+              <span>{loadingEnhance ? "Enhancing..." : "Enhance"}</span>
             </button>
 
             {/* Remove BG Again */}

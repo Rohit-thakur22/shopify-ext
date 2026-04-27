@@ -610,28 +610,62 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onRemove, pre
   const total = unit * qty;
 
   const MAX_IN = 22.5;
+  const MIN_IN = 0.5;
+  const STEP_IN = 0.5;
+
+  const clamp = (n) => Math.min(MAX_IN, Math.max(MIN_IN, n));
+  // Round to 2 decimals to avoid floating-point dust like 1.4000000000000001
+  const roundDim = (n) => Math.round(n * 100) / 100;
+
+  const stepDim = (field, dir) => {
+    const current = parseFloat(row[field]);
+    const base = isFinite(current) ? current : MIN_IN;
+    onUpdate(field, String(roundDim(clamp(base + dir * STEP_IN))));
+  };
+
+  const stepBtn = (field, dir, label) => (
+    <button
+      type="button"
+      onClick={() => stepDim(field, dir)}
+      aria-label={`${dir > 0 ? "Increase" : "Decrease"} ${field}`}
+      className="hq-dim-step-btn"
+      style={{
+        border: "1px solid #d1d5db", backgroundColor: "#f3f4f6", color: "#374151",
+        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        fontWeight: 600, flexShrink: 0, touchAction: "manipulation",
+        WebkitTapHighlightColor: "transparent",
+      }}
+    >
+      {label}
+    </button>
+  );
 
   const numField = (label, field, placeholder) => (
     <div style={{ flex: 1, minWidth: 0 }}>
       <p style={{ margin: "0 0 0.25rem", fontSize: "0.6875rem", fontWeight: 600, color: "#6b7280" }}>{label}</p>
-      <input
-        type="number" min={0.5} max={MAX_IN} step={0.01}
-        placeholder={placeholder} value={row[field]}
-        onChange={(e) => {
-          const raw = e.target.value;
-          // Allow free typing; clamp only on valid numbers
-          const n = parseFloat(raw);
-          if (raw === "" || raw === "-") { onUpdate(field, raw); return; }
-          if (isFinite(n)) onUpdate(field, String(Math.min(MAX_IN, Math.max(0.5, n))));
-        }}
-        className="hq-dim-input"
-        style={{
-          width: "100%", borderRadius: "0.375rem",
-          border: "1px solid #d1d5db", textAlign: "center",
-          fontSize: "0.875rem", color: "#111827", backgroundColor: "#fff",
-          outline: "none", boxSizing: "border-box", touchAction: "manipulation",
-        }}
-      />
+      <div className="hq-dim-stepper" style={{ display: "flex", alignItems: "stretch", borderRadius: "0.375rem", overflow: "hidden", border: "1px solid #d1d5db", backgroundColor: "#fff" }}>
+        {stepBtn(field, -1, "−")}
+        <input
+          type="number" min={MIN_IN} max={MAX_IN} step={0.01}
+          placeholder={placeholder} value={row[field]}
+          onChange={(e) => {
+            const raw = e.target.value;
+            // Allow free typing; clamp only on valid numbers
+            const n = parseFloat(raw);
+            if (raw === "" || raw === "-") { onUpdate(field, raw); return; }
+            if (isFinite(n)) onUpdate(field, String(clamp(n)));
+          }}
+          className="hq-dim-input"
+          style={{
+            flex: 1, minWidth: 0, border: "none",
+            textAlign: "center", fontSize: "0.875rem",
+            color: "#111827", backgroundColor: "transparent",
+            outline: "none", padding: 0, MozAppearance: "textfield",
+            boxSizing: "border-box", touchAction: "manipulation",
+          }}
+        />
+        {stepBtn(field, 1, "+")}
+      </div>
     </div>
   );
 
@@ -1046,6 +1080,10 @@ const DesignStep2 = ({
 
         /* ── Dimension inputs (CustomSizeRow) ── */
         .hq-dim-input { height: 2rem; }
+        .hq-dim-stepper { height: 2rem; }
+        .hq-dim-step-btn { width: 1.875rem; height: 100%; font-size: 1rem; }
+        .hq-dim-step-btn:first-child { border-right: 1px solid #d1d5db; }
+        .hq-dim-step-btn:last-child  { border-left: 1px solid #d1d5db; }
 
         /* ── Mobile (≤ 640 px) ── */
         @media (max-width: 640px) {
@@ -1058,6 +1096,8 @@ const DesignStep2 = ({
 
           /* Dimension inputs: taller for touch */
           .hq-dim-input { height: 2.75rem; font-size: 1rem; }
+          .hq-dim-stepper { height: 2.75rem; }
+          .hq-dim-step-btn { width: 2.75rem; font-size: 1.125rem; }
         }
       `}</style>
     </div>
