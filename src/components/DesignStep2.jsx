@@ -47,12 +47,13 @@ const getGarmentSrc = (view, assetUrls = {}) => ({
 
 // ─── State management ─────────────────────────────────────────────────────────
 const ACTIONS = {
-  TOGGLE_PLACEMENT  : "TOGGLE_PLACEMENT",
-  SET_PREDEFINED_QTY: "SET_PREDEFINED_QTY",
-  ADD_CUSTOM_SIZE   : "ADD_CUSTOM_SIZE",
-  UPDATE_CUSTOM_SIZE: "UPDATE_CUSTOM_SIZE",
-  REMOVE_CUSTOM_SIZE: "REMOVE_CUSTOM_SIZE",
-  FILL_CUSTOM_DIMS  : "FILL_CUSTOM_DIMS",   // auto-fill w/h from uploaded image
+  TOGGLE_PLACEMENT       : "TOGGLE_PLACEMENT",
+  SET_PREDEFINED_QTY     : "SET_PREDEFINED_QTY",
+  ADD_CUSTOM_SIZE        : "ADD_CUSTOM_SIZE",
+  UPDATE_CUSTOM_SIZE     : "UPDATE_CUSTOM_SIZE",
+  UPDATE_CUSTOM_SIZE_DIMS: "UPDATE_CUSTOM_SIZE_DIMS", // atomic width+height update (aspect-ratio link)
+  REMOVE_CUSTOM_SIZE     : "REMOVE_CUSTOM_SIZE",
+  FILL_CUSTOM_DIMS       : "FILL_CUSTOM_DIMS",        // auto-fill w/h from uploaded image
 };
 
 const mkConfig      = () => ({ predefined: {}, customSizes: [] });
@@ -91,6 +92,12 @@ function reducer(state, action) {
       const { placement, id, field, value } = action;
       const pc = state.config[placement] ?? mkConfig();
       return { ...state, config: { ...state.config, [placement]: { ...pc, customSizes: pc.customSizes.map((r) => r.id === id ? { ...r, [field]: value } : r) } } };
+    }
+    case ACTIONS.UPDATE_CUSTOM_SIZE_DIMS: {
+      // Atomic width+height update so aspect-ratio linking can't desync the two fields
+      const { placement, id, width, height } = action;
+      const pc = state.config[placement] ?? mkConfig();
+      return { ...state, config: { ...state.config, [placement]: { ...pc, customSizes: pc.customSizes.map((r) => r.id === id ? { ...r, width, height } : r) } } };
     }
     case ACTIONS.REMOVE_CUSTOM_SIZE: {
       const { placement, id } = action;
@@ -602,7 +609,7 @@ const SizeSlider = memo(function SizeSlider({ sizes, predefined, onSetPredefined
 // ─────────────────────────────────────────────────────────────────────────────
 // CustomSizeRow
 // ─────────────────────────────────────────────────────────────────────────────
-const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onRemove, preCut, imgPixels }) {
+const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onUpdateDims, onRemove, preCut, imgPixels }) {
   const w   = toNum(row.width);
   const h   = toNum(row.height);
   const qty = toInt(row.quantity);
@@ -617,10 +624,40 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onRemove, pre
   // Round to 2 decimals to avoid floating-point dust like 1.4000000000000001
   const roundDim = (n) => Math.round(n * 100) / 100;
 
+  // Aspect ratio of the uploaded design (width / height in pixels). When
+  // available, editing one dimension auto-adjusts the other so the user's
+  // chosen size always matches the original image proportions.
+  const aspectRatio = (imgPixels && imgPixels.w > 0 && imgPixels.h > 0)
+    ? imgPixels.w / imgPixels.h
+    : null;
+
+  /**
+   * Apply a new value to one dimension and (when locked to the image's
+   * aspect ratio) recompute the linked dimension. Both fields update in
+   * a single dispatch so width/height never desync.
+   */
+  const applyDim = (field, value) => {
+    const clamped = clamp(value);
+    if (aspectRatio && onUpdateDims) {
+      let newW;
+      let newH;
+      if (field === "width") {
+        newW = clamped;
+        newH = clamp(clamped / aspectRatio);
+      } else {
+        newH = clamped;
+        newW = clamp(clamped * aspectRatio);
+      }
+      onUpdateDims(String(roundDim(newW)), String(roundDim(newH)));
+    } else {
+      onUpdate(field, String(roundDim(clamped)));
+    }
+  };
+
   const stepDim = (field, dir) => {
     const current = parseFloat(row[field]);
     const base = isFinite(current) ? current : MIN_IN;
-    onUpdate(field, String(roundDim(clamp(base + dir * STEP_IN))));
+    applyDim(field, base + dir * STEP_IN);
   };
 
   const stepBtn = (field, dir, label) => (
@@ -653,7 +690,7 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onRemove, pre
             // Allow free typing; clamp only on valid numbers
             const n = parseFloat(raw);
             if (raw === "" || raw === "-") { onUpdate(field, raw); return; }
-            if (isFinite(n)) onUpdate(field, String(clamp(n)));
+            if (isFinite(n)) applyDim(field, n);
           }}
           className="hq-dim-input"
           style={{
@@ -736,7 +773,7 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onRemove, pre
 // ─────────────────────────────────────────────────────────────────────────────
 const PlacementSection = memo(function PlacementSection({
   placement, pConfig, onSetPredefined, onAddCustom,
-  onUpdateCustom, onRemoveCustom, onClose, preCut, pricingData, imgPixels,
+  onUpdateCustom, onUpdateCustomDims, onRemoveCustom, onClose, preCut, pricingData, imgPixels,
 }) {
   const isCustomPlacement = placement.id === "custom";
   const hasPredefined     = placement.sizes.length > 0;
@@ -797,6 +834,7 @@ const PlacementSection = memo(function PlacementSection({
                 <CustomSizeRow
                   key={row.id} row={row}
                   onUpdate={(field, value) => onUpdateCustom(row.id, field, value)}
+                  onUpdateDims={(width, height) => onUpdateCustomDims(row.id, width, height)}
                   onRemove={() => onRemoveCustom(row.id)}
                   preCut={preCut}
                   imgPixels={imgPixels}
@@ -994,6 +1032,7 @@ const DesignStep2 = ({
   const setPredefinedQty = useCallback((placement, sizeId, qty) => dispatch({ type: ACTIONS.SET_PREDEFINED_QTY, placement, sizeId, qty }), []);
   const addCustomSize    = useCallback((placement) => dispatch({ type: ACTIONS.ADD_CUSTOM_SIZE, placement }), []);
   const updateCustomSize = useCallback((placement, id, field, value) => dispatch({ type: ACTIONS.UPDATE_CUSTOM_SIZE, placement, id, field, value }), []);
+  const updateCustomSizeDims = useCallback((placement, id, width, height) => dispatch({ type: ACTIONS.UPDATE_CUSTOM_SIZE_DIMS, placement, id, width, height }), []);
   const removeCustomSize = useCallback((placement, id) => dispatch({ type: ACTIONS.REMOVE_CUSTOM_SIZE, placement, id }), []);
 
   return (
@@ -1042,6 +1081,7 @@ const DesignStep2 = ({
                 onSetPredefined={(sizeId, qty) => setPredefinedQty(pid, sizeId, qty)}
                 onAddCustom={() => addCustomSize(pid)}
                 onUpdateCustom={(id, field, value) => updateCustomSize(pid, id, field, value)}
+                onUpdateCustomDims={(id, width, height) => updateCustomSizeDims(pid, id, width, height)}
                 onRemoveCustom={(id) => removeCustomSize(pid, id)}
                 onClose={() => togglePlacement(pid)}
                 preCut={preCut}

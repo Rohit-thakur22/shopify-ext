@@ -152,12 +152,52 @@ const ProductCustomizer = ({
   const columnsContainerRef = useRef(null);
   const leftColumnRef = useRef(null);
   const rightColumnRef = useRef(null);
+  const step1Ref = useRef(null);
+
+  // On mobile, the upload step renders inside the live-preview column so it
+  // sits between the preview grid and the color picker. Initialised lazily
+  // from matchMedia to avoid a desktop-then-mobile flicker on first paint.
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const handler = (e) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    if (mq.addEventListener) mq.addEventListener("change", handler);
+    else mq.addListener(handler); // Safari < 14 fallback
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", handler);
+      else mq.removeListener(handler);
+    };
+  }, []);
 
   const { recalculate } = useStickyColumn({
     parentRef: columnsContainerRef,
     leftRef: leftColumnRef,
     rightRef: rightColumnRef,
   });
+
+  // On mobile, the live preview occupies a full screen of vertical space, so
+  // first-time visitors don't see the upload control without scrolling.
+  // Auto-scroll to Step 1 once on mount (mobile only). Skipped when the user
+  // arrives with `?design-handle=` since the design is already loading and
+  // they should land on the preview, not the empty upload box.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.innerWidth >= 768) return;
+    if (designHandle) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const t = setTimeout(() => {
+      step1Ref.current?.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "start",
+      });
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const t1 = setTimeout(recalculate, 80);
@@ -757,6 +797,44 @@ const ProductCustomizer = ({
   const R = "1rem";          // card border-radius
   const SH = "0 1px 4px rgba(0,0,0,0.06)"; // card shadow
 
+  // Step 1 card — rendered in exactly ONE location per viewport so its
+  // internal state (DPI modal, choice modal, etc.) is preserved:
+  //   • Mobile  → injected into DesignViewerPixelPerfect via slotAfterGrid
+  //   • Desktop → in the right column, original position
+  const step1Card = (
+    <div
+      ref={step1Ref}
+      style={{
+        borderRadius: R,
+        border: "1px solid #d8b4fe",
+        background: "linear-gradient(145deg, rgba(123,44,191,0.04) 0%, #ffffff 100%)",
+        padding: "1.375rem",
+        boxShadow: SH,
+        scrollMarginTop: "1rem",
+      }}
+    >
+      <StepHeader
+        num="1"
+        title="Upload Your Design"
+        subtitle="Supports PNG, JPG, SVG — we auto-remove the background"
+        gradient="linear-gradient(135deg, #7b2cbf, #9d4edd)"
+      />
+      <UploadPanel
+        onUpload={handleImageUpload}
+        imageUrl={imageUrl}
+        onEnhance={handleEnhance}
+        onRemoveBgAgain={handleRemoveBgAgain}
+        loadingRemoveBg={loadingRemoveBg}
+        loadingEnhance={loadingEnhance}
+        loadingDesignFromUrl={loadingDesignFromUrl}
+        onClear={handleClearDesign}
+        onCancelProcessing={handleCancelProcessing}
+        removeBgEnabled={removeBgEnabled}
+        onToggleRemoveBg={handleToggleRemoveBg}
+      />
+    </div>
+  );
+
   return (
     <div
       ref={customizerRootRef}
@@ -812,8 +890,7 @@ const ProductCustomizer = ({
                 tintColor={tintColor}
                 onColorChange={handleColorChange}
                 assetUrls={assetUrls}
-                designWidth={width}
-                designHeight={height}
+                slotAfterGrid={isMobile ? step1Card : null}
               />
             </div>
           </div>
@@ -825,28 +902,8 @@ const ProductCustomizer = ({
             style={{ flex: "1 1 56%", minWidth: "min(100%, 280px)", display: "flex", flexDirection: "column", gap: "1.125rem" }}
           >
 
-            {/* ── STEP 1: Upload your design ── */}
-            <div style={{ borderRadius: R, border: "1px solid #d8b4fe", background: "linear-gradient(145deg, rgba(123,44,191,0.04) 0%, #ffffff 100%)", padding: "1.375rem", boxShadow: SH }}>
-              <StepHeader
-                num="1"
-                title="Upload Your Design"
-                subtitle="Supports PNG, JPG, SVG — we auto-remove the background"
-                gradient="linear-gradient(135deg, #7b2cbf, #9d4edd)"
-              />
-              <UploadPanel
-                onUpload={handleImageUpload}
-                imageUrl={imageUrl}
-                onEnhance={handleEnhance}
-                onRemoveBgAgain={handleRemoveBgAgain}
-                loadingRemoveBg={loadingRemoveBg}
-                loadingEnhance={loadingEnhance}
-                loadingDesignFromUrl={loadingDesignFromUrl}
-                onClear={handleClearDesign}
-                onCancelProcessing={handleCancelProcessing}
-                removeBgEnabled={removeBgEnabled}
-                onToggleRemoveBg={handleToggleRemoveBg}
-              />
-            </div>
+            {/* ── STEP 1: Upload your design (desktop only — see slotAfterGrid above) ── */}
+            {!isMobile && step1Card}
 
             {/* ── STEP 2: Set design placement, sizes & quantities ── */}
             <div style={{ borderRadius: R, border: "1px solid #fbcfe8", background: "linear-gradient(145deg, rgba(255,105,180,0.04) 0%, #ffffff 100%)", padding: "1.375rem", boxShadow: SH }}>

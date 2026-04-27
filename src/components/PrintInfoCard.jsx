@@ -287,7 +287,7 @@ const PrintInfoCard = () => {
             gap: "0.45rem",
           }}
         >
-          {PRESS_SETTINGS.map((step) => (
+          {PRESS_SETTINGS.map((step, idx) => (
             <li
               key={step.label}
               style={{
@@ -298,6 +298,9 @@ const PrintInfoCard = () => {
                 borderRadius: "0.55rem",
                 padding: "0.45rem 0.5rem",
                 backgroundColor: "#ffffff",
+                ...(idx === PRESS_SETTINGS.length - 1 && PRESS_SETTINGS.length % 2 !== 0
+                  ? { gridColumn: "1 / -1" }
+                  : {}),
               }}
             >
               <span
