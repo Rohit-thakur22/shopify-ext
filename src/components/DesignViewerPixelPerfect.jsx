@@ -698,7 +698,7 @@ function DesignViewerPixelPerfect({
               cursor: "pointer",
             }}
           >
-            <span>Show Discounts</span>
+            <span>{showDiscounts ? "Hide Discounts" : "Show Discounts"}</span>
             <svg
               width="18"
               height="18"
