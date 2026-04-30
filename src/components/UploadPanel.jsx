@@ -7,98 +7,37 @@ import PremadeDesignsModal from "./PremadeDesignsModal";
 import { Camera, Trash, AlertTriangle } from "lucide-react";
 import useDisableInteractions from "../hooks/useDisableInteractions";
 
-const PRINT_DPI_THRESHOLD = 300;
+// Print-quality threshold: smaller side must be at least this many pixels.
+// At 300 DPI that's ~3.3" — below this, printing on cloth is visibly soft.
+// Metadata (PNG pHYs / JPEG JFIF density) is intentionally ignored: it's a
+// declarative tag, not a measure of actual image resolution. A 3000px PNG
+// exported from Photoshop with default 72-DPI metadata still prints fine.
+const MIN_PRINT_PIXELS = 1000;
 
-function getPngDpi(view) {
-  // PNG signature is 8 bytes, chunks start at byte 8
-  let offset = 8;
-  while (offset + 12 <= view.byteLength) {
-    const length = view.getUint32(offset);
-    const type = String.fromCharCode(
-      view.getUint8(offset + 4),
-      view.getUint8(offset + 5),
-      view.getUint8(offset + 6),
-      view.getUint8(offset + 7),
-    );
-
-    // pHYs: 4 bytes x ppm, 4 bytes y ppm, 1 byte unit specifier
-    if (type === "pHYs" && length === 9) {
-      const xPpm = view.getUint32(offset + 8);
-      const yPpm = view.getUint32(offset + 12);
-      const unit = view.getUint8(offset + 16);
-      if (unit === 1) {
-        return {
-          x: xPpm * 0.0254,
-          y: yPpm * 0.0254,
-        };
-      }
-      return null;
-    }
-
-    offset += 12 + length;
-  }
-  return null;
-}
-
-function getJpegDpi(view) {
-  let offset = 2; // Skip SOI marker (FFD8)
-  while (offset + 4 < view.byteLength) {
-    if (view.getUint8(offset) !== 0xff) {
-      offset += 1;
-      continue;
-    }
-
-    const marker = view.getUint8(offset + 1);
-    if (marker === 0xd9 || marker === 0xda) break; // EOI/SOS
-
-    const segmentLength = view.getUint16(offset + 2);
-    if (segmentLength < 2) break;
-
-    // APP0/JFIF segment can include pixel density information
-    if (marker === 0xe0 && offset + 2 + segmentLength <= view.byteLength) {
-      const ident = String.fromCharCode(
-        view.getUint8(offset + 4),
-        view.getUint8(offset + 5),
-        view.getUint8(offset + 6),
-        view.getUint8(offset + 7),
-        view.getUint8(offset + 8),
-      );
-
-      if (ident === "JFIF\0") {
-        const units = view.getUint8(offset + 11);
-        const xDensity = view.getUint16(offset + 12);
-        const yDensity = view.getUint16(offset + 14);
-
-        if (units === 1) return { x: xDensity, y: yDensity }; // dots per inch
-        if (units === 2)
-          return { x: xDensity * 2.54, y: yDensity * 2.54 }; // dots per cm
-        return null;
-      }
-    }
-
-    offset += 2 + segmentLength;
-  }
-  return null;
-}
-
-async function readImageDpi(file) {
+/**
+ * Read the natural pixel dimensions of an image file.
+ * Skips PDFs (rasterized server-side, dimensions are server-controlled).
+ * Returns null if the file isn't an image we can decode in-browser.
+ */
+async function readImagePixelSize(file) {
   if (!file) return null;
   const type = (file.type || "").toLowerCase();
-  if (!type.includes("png") && !type.includes("jpeg") && !type.includes("jpg")) {
-    return null;
-  }
+  if (!type.startsWith("image/")) return null;
 
-  try {
-    const buffer = await file.arrayBuffer();
-    const view = new DataView(buffer);
-
-    if (type.includes("png")) return getPngDpi(view);
-    if (type.includes("jpeg") || type.includes("jpg")) return getJpegDpi(view);
-    return null;
-  } catch (err) {
-    console.warn("Could not read image DPI metadata:", err);
-    return null;
-  }
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const result = { width: img.naturalWidth, height: img.naturalHeight };
+      URL.revokeObjectURL(url);
+      resolve(result);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    img.src = url;
+  });
 }
 
 const UploadPanel = ({
@@ -172,21 +111,22 @@ const UploadPanel = ({
     if (!file) return;
 
     const url = URL.createObjectURL(file);
-    onUpload(url, file);
 
-    // DPI check only applies to raster images; PDFs are rasterized server-side.
+    // PDFs skip pixel-size check; server rasterizes them.
     if (file.type === "application/pdf") {
+      onUpload(url, file);
       setDpiWarning(null);
       setDpiModalOpen(false);
       return;
     }
 
-    const dpi = await readImageDpi(file);
-    if (
-      dpi &&
-      (dpi.x < PRINT_DPI_THRESHOLD || dpi.y < PRINT_DPI_THRESHOLD)
-    ) {
-      setDpiWarning(dpi);
+    // Decode once, share the result with ProductCustomizer via meta so it
+    // doesn't re-decode the same file to compute inches.
+    const size = await readImagePixelSize(file);
+    onUpload(url, file, { pixelSize: size });
+
+    if (size && Math.min(size.width, size.height) < MIN_PRINT_PIXELS) {
+      setDpiWarning(size);
       setDpiModalOpen(true);
     } else {
       setDpiWarning(null);
@@ -210,18 +150,18 @@ const UploadPanel = ({
   };
 
   const handlePremadeSelect = async (blobUrl, file) => {
-    onUpload(blobUrl, file, { source: "premade" });
     if (!file || file.type === "application/pdf") {
+      onUpload(blobUrl, file, { source: "premade" });
       setDpiWarning(null);
       setDpiModalOpen(false);
       return;
     }
-    const dpi = await readImageDpi(file);
-    if (
-      dpi &&
-      (dpi.x < PRINT_DPI_THRESHOLD || dpi.y < PRINT_DPI_THRESHOLD)
-    ) {
-      setDpiWarning(dpi);
+    // Decode once, share dims with ProductCustomizer via meta.
+    const size = await readImagePixelSize(file);
+    onUpload(blobUrl, file, { source: "premade", pixelSize: size });
+
+    if (size && Math.min(size.width, size.height) < MIN_PRINT_PIXELS) {
+      setDpiWarning(size);
       setDpiModalOpen(true);
     } else {
       setDpiWarning(null);
@@ -433,7 +373,7 @@ const UploadPanel = ({
             }}>
               <AlertTriangle size={14} style={{ color: "#d97706", flexShrink: 0 }} />
               <span style={{ fontSize: "0.75rem", color: "#92400e", flex: 1 }}>
-                Low resolution ({Math.round(dpiWarning.x)} x {Math.round(dpiWarning.y)} DPI) — may not print clearly.
+                Low resolution ({dpiWarning.width} x {dpiWarning.height} px) — may not print clearly.
               </span>
               {/* {onEnhance && (
                 <button

@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { AlertTriangle, X } from "lucide-react";
 
 const DpiWarningModal = ({ dpi, onClose, onUploadNew, onEnhance }) => {
+  // `dpi` now carries { width, height } in pixels (renamed from x/y DPI). Kept
+  // the prop name for backwards-compat with the call site state variable.
   if (!dpi || typeof document === "undefined") return null;
   // Mount to body so viewport-fixed overlay is centered on full storefront viewport.
   const portalTarget = document.body;
@@ -29,11 +31,11 @@ const DpiWarningModal = ({ dpi, onClose, onUploadNew, onEnhance }) => {
                 Low-resolution image detected
               </p>
               <p className="dpi-warning-modal-text">
-                This file is below 300 DPI and may not print at best quality.
+                This image is small and may print blurry on cloth.
                 {onEnhance && " Try enhancing it to improve resolution."}
               </p>
               <p className="dpi-warning-modal-meta">
-                Detected: {Math.round(dpi.x)} x {Math.round(dpi.y)} DPI
+                Detected: {dpi.width} x {dpi.height} px
               </p>
             </div>
           </div>

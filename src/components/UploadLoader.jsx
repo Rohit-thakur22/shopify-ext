@@ -2,17 +2,22 @@ import React, { useState } from "react";
 
 /**
  * Base URL for app assets. In Shopify the page is the store, so relative paths
- * like /assets/... resolve to the store and 404. Use the script's origin so
- * the GIF loads from the app host (e.g. Vercel).
+ * like /assets/... resolve to the store and 404. Resolve against the bundle's
+ * own URL so the GIF loads from the app host (Vercel).
+ *
+ * Order: import.meta.url (ES modules — set on every module/chunk),
+ * then document.currentScript (classic scripts only — null in modules).
  */
 function getAssetBase() {
+  try {
+    if (typeof import.meta !== "undefined" && import.meta.url) {
+      return new URL(import.meta.url).origin;
+    }
+  } catch (_) {}
   if (typeof document === "undefined") return "";
   try {
     const script = document.currentScript;
-    if (script?.src) {
-      const origin = new URL(script.src).origin;
-      return origin;
-    }
+    if (script?.src) return new URL(script.src).origin;
   } catch (_) {}
   return "";
 }

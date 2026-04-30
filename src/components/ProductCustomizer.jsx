@@ -363,13 +363,23 @@ const ProductCustomizer = ({
       setImageUrl(url);
       setCurrentImageBlob(file);
 
-      // Auto-fill width/height from image dimensions (inches), clamped to [0.5, 22.5]
-      getImageDimensionsInInches(url)
-        .then(({ widthInches, heightInches }) => {
-          setWidth(widthInches);
-          setHeight(heightInches);
-        })
-        .catch((err) => console.warn("Could not read image dimensions:", err));
+      // Auto-fill width/height from image dimensions (inches), clamped to [0.5, 22.5].
+      // If UploadPanel already decoded the image (passed via meta.pixelSize),
+      // reuse those pixel dims instead of decoding the same file a second time.
+      const px = meta?.pixelSize;
+      if (px && px.width > 0 && px.height > 0) {
+        const clamp = (v) =>
+          Math.min(DIMENSION_MAX, Math.max(DIMENSION_MIN, +v.toFixed(2)));
+        setWidth(clamp(px.width / DPI));
+        setHeight(clamp(px.height / DPI));
+      } else {
+        getImageDimensionsInInches(url)
+          .then(({ widthInches, heightInches }) => {
+            setWidth(widthInches);
+            setHeight(heightInches);
+          })
+          .catch((err) => console.warn("Could not read image dimensions:", err));
+      }
 
       // Auto-remove background on upload only if removeBgEnabled is true
       if (file && removeBgEnabled) {
