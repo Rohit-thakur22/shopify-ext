@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState, memo } from "react";
 import { Stage, Layer, Image, Rect, Group } from "react-konva";
-import useImage from "use-image";
+import useBitmapImage from "../hooks/useBitmapImage";
 import useDisableInteractions from "../hooks/useDisableInteractions";
 import PrintInfoCard from "./PrintInfoCard";
 import { DISCOUNT_TABLE_ROWS } from "../lib/pricingConfig";
@@ -285,10 +285,10 @@ const SingleProductPreview = memo(function SingleProductPreview({
     return () => observer.disconnect();
   }, []);
 
-  const [garmentImage] = useImage(garmentUrl, "anonymous");
-  const [designImage] = useImage(designUrl || "", "anonymous");
-  const [textureImage] = useImage(textureUrl || "", "anonymous");
-  const [shadowImage] = useImage(shadowUrl || "", "anonymous");
+  const [garmentImage] = useBitmapImage(garmentUrl);
+  const [designImage] = useBitmapImage(designUrl || "");
+  const [textureImage] = useBitmapImage(textureUrl || "");
+  const [shadowImage] = useBitmapImage(shadowUrl || "");
 
   const scale = useMemo(() => {
     if (!garmentImage) return 1;
@@ -525,7 +525,7 @@ function DesignViewerPixelPerfect({
   // so the SingleProductPreview instances reuse the same loaded image. We use
   // the natural pixel dimensions to compute each product's contain-fit size
   // for the badge label (NinjaTransfers-style).
-  const [designImageOuter] = useImage(imageUrl || "", "anonymous");
+  const [designImageOuter] = useBitmapImage(imageUrl || "");
 
   /**
    * Per-product contain-fit size in inches. Null until the design loads,

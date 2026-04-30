@@ -1,10 +1,16 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
 import UploadPanel from "./UploadPanel";
-import DesignViewerPixelPerfect from "./DesignViewerPixelPerfect";
-import DesignStep2 from "./DesignStep2";
 import PreCutCheckbox from "./PreCutCheckbox";
 import AddToCartButton from "./AddToCartButton";
+
+// Heavy canvas/render libraries (Konva ~1.8MB, Fabric ~30MB unpacked) live in
+// these two components. Code-split so the initial parse/compile of
+// ProductCustomizer doesn't block first paint on low-end devices.
+const importDesignViewer = () => import("./DesignViewerPixelPerfect");
+const importDesignStep2 = () => import("./DesignStep2");
+const DesignViewerPixelPerfect = lazy(importDesignViewer);
+const DesignStep2 = lazy(importDesignStep2);
 import useScopedShortcutProtection from "../hooks/useScopedShortcutProtection";
 import useStickyColumn from "../hooks/useStickyColumn";
 
@@ -160,6 +166,23 @@ const ProductCustomizer = ({
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
   );
+  // Kick off the heavy chunks once the browser is idle after first paint.
+  // Suspense still works if the user scrolls them into view sooner.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const idle =
+      window.requestIdleCallback ||
+      ((cb) => window.setTimeout(cb, 200));
+    const cancel =
+      window.cancelIdleCallback ||
+      ((id) => window.clearTimeout(id));
+    const id = idle(() => {
+      importDesignViewer();
+      importDesignStep2();
+    });
+    return () => cancel(id);
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(max-width: 767px)");
@@ -886,13 +909,15 @@ const ProductCustomizer = ({
             style={{ flex: "1 1 38%", minWidth: "min(100%, 280px)" }}
           >
             <div style={{ backgroundColor: "#ffffff", borderRadius: R, border: "1px solid #e9d5ff", padding: "1.125rem", boxShadow: SH }}>
-              <DesignViewerPixelPerfect
-                imageUrl={imageUrl}
-                tintColor={tintColor}
-                onColorChange={handleColorChange}
-                assetUrls={assetUrls}
-                slotAfterGrid={isMobile ? step1Card : null}
-              />
+              <Suspense fallback={<div style={{ minHeight: 480 }} aria-hidden />}>
+                <DesignViewerPixelPerfect
+                  imageUrl={imageUrl}
+                  tintColor={tintColor}
+                  onColorChange={handleColorChange}
+                  assetUrls={assetUrls}
+                  slotAfterGrid={isMobile ? step1Card : null}
+                />
+              </Suspense>
             </div>
           </div>
 
@@ -914,14 +939,16 @@ const ProductCustomizer = ({
                 subtitle="Choose placement, select sizes, and enter quantities per size"
                 gradient="linear-gradient(135deg, #be185d, #ff69b4)"
               />
-              <DesignStep2
-                preCut={preCut}
-                imageUrl={imageUrl}
-                tintColor={tintColor}
-                assetUrls={assetUrls}
-                onChange={handleStep2Change}
-                hidePlacementSelector={isUvDtfRoute}
-              />
+              <Suspense fallback={<div style={{ minHeight: 320 }} aria-hidden />}>
+                <DesignStep2
+                  preCut={preCut}
+                  imageUrl={imageUrl}
+                  tintColor={tintColor}
+                  assetUrls={assetUrls}
+                  onChange={handleStep2Change}
+                  hidePlacementSelector={isUvDtfRoute}
+                />
+              </Suspense>
 
               {/* ── Pre-cut: last section of Step 2 ── */}
               <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid #e5e7eb" }}>

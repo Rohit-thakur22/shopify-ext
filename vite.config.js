@@ -14,16 +14,25 @@ export default defineConfig({
     copyPublicDir: true,
     rollupOptions: {
       output: {
-        format: "iife",
+        // ES module output unlocks dynamic-import code splitting. The Shopify
+        // block must load this with <script type="module"> for it to run.
+        // Rolling back: swap to format: "iife" and remove chunkFileNames /
+        // manualChunks; the Liquid <script> tag also needs to drop type="module".
+        format: "es",
         entryFileNames: 'index.js',
+        chunkFileNames: 'chunks/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
-          // Keep CSS as index.css
           if (assetInfo.name && assetInfo.name.endsWith('.css')) {
             return 'index.css'
           }
-          // Keep other assets with their names
           return '[name][extname]'
-        }
+        },
+        // Pin the heavy canvas libraries into their own cacheable chunks so
+        // the initial entry stays small and they're cached across deploys.
+        manualChunks: (id) => {
+          if (id.includes('node_modules/fabric')) return 'fabric';
+          if (id.includes('node_modules/konva') || id.includes('node_modules/react-konva')) return 'konva';
+        },
       }
     }
   },
