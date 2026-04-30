@@ -45,6 +45,24 @@ const getGarmentSrc = (view, assetUrls = {}) => ({
   side : assetUrls.side  || "/assets/preview-cloths/sleeve-1.webp",
 }[view] || assetUrls.tshirt || CDN + "/assets/6-cloths/full-front.webp");
 
+// Scale a placement's max-bounding-box (size.w × size.h) down to fit the
+// uploaded artwork's aspect ratio. Mirrors the live-preview "contain-fit":
+// the print stays inside the box on both axes, never exceeding either max.
+// Falls back to (size.w, size.h) when no artwork has been decoded yet.
+function getEffectiveSize(size, imgPixels) {
+  const aw = imgPixels?.w || imgPixels?.width || 0;
+  const ah = imgPixels?.h || imgPixels?.height || 0;
+  if (aw <= 0 || ah <= 0) return { w: size.w, h: size.h };
+  const ratio = aw / ah;
+  let w = size.h * ratio; // fit by max height
+  let h = size.h;
+  if (w > size.w) {       // overflows width — fit by max width instead
+    w = size.w;
+    h = size.w / ratio;
+  }
+  return { w, h };
+}
+
 // ─── State management ─────────────────────────────────────────────────────────
 const ACTIONS = {
   TOGGLE_PLACEMENT       : "TOGGLE_PLACEMENT",
@@ -117,7 +135,7 @@ function reducer(state, action) {
 }
 
 // ─── Pricing hook ─────────────────────────────────────────────────────────────
-function usePricingEngine(config, selectedPlacements, preCut) {
+function usePricingEngine(config, selectedPlacements, preCut, imgPixels) {
   return useMemo(() => {
     let totalQty = 0, rawTotal = 0;
     const perPlacement = {};
@@ -133,7 +151,11 @@ function usePricingEngine(config, selectedPlacements, preCut) {
       const priceUnit = (area) => toCents(Math.max(MIN_UNIT_PRICE, BASE_FEE_PER_UNIT + area * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0)));
       pData.sizes.forEach((sz) => {
         const qty = toInt(pc.predefined[sz.id]);
-        if (qty > 0) { const u = priceUnit(sz.w * sz.h); pQty += qty; pRaw += u * qty; }
+        if (qty > 0) {
+          const eff = getEffectiveSize(sz, imgPixels);
+          const u = priceUnit(eff.w * eff.h);
+          pQty += qty; pRaw += u * qty;
+        }
       });
       pc.customSizes.forEach((row) => {
         const w = toNum(row.width), h = toNum(row.height), qty = toInt(row.quantity);
@@ -154,7 +176,7 @@ function usePricingEngine(config, selectedPlacements, preCut) {
       nextTier,
       perPlacement,
     };
-  }, [config, selectedPlacements, preCut]);
+  }, [config, selectedPlacements, preCut, imgPixels]);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -278,7 +300,17 @@ const PlacementCard = memo(function PlacementCard({
         .then((logo) => {
           const gw = Math.abs(bi.getScaledWidth());
           const gh = Math.abs(bi.getScaledHeight());
-          const s  = (gw * placement.fabricScale) / logo.width;
+          // Bound box: width = gw × fabricScale; height derived from the
+          // placement's largest predefined size (h/w ratio). Falls back to
+          // square for "custom" (no predefined sizes).
+          const ref = (placement.sizes && placement.sizes.length > 0)
+            ? placement.sizes.reduce((a, b) => (a.w * a.h >= b.w * b.h ? a : b))
+            : { w: 1, h: 1 };
+          const boxW = gw * placement.fabricScale;
+          const boxH = boxW * (ref.h / ref.w);
+          // Contain-fit: shrink by whichever dimension overflows first so a
+          // tall artwork doesn't spill out the bottom of the shirt thumbnail.
+          const s = Math.min(boxW / logo.width, boxH / logo.height);
           logo.set({
             originX: "center", originY: "center",
             left: bi.left + placement.fabricPos.x * gw,
@@ -483,9 +515,10 @@ const QuantityStepper = memo(function QuantityStepper({ value, onChange, min = 0
 // ─────────────────────────────────────────────────────────────────────────────
 // SizeCard
 // ─────────────────────────────────────────────────────────────────────────────
-const SizeCard = memo(function SizeCard({ size, qty, onQtyChange, preCut }) {
+const SizeCard = memo(function SizeCard({ size, qty, onQtyChange, preCut, imgPixels }) {
   const active    = qty > 0;
-  const unitPrice = Math.round(Math.max(MIN_UNIT_PRICE, BASE_FEE_PER_UNIT + size.w * size.h * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0)) * 100) / 100;
+  const eff       = getEffectiveSize(size, imgPixels);
+  const unitPrice = Math.round(Math.max(MIN_UNIT_PRICE, BASE_FEE_PER_UNIT + eff.w * eff.h * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0)) * 100) / 100;
   return (
     <div className="hq-size-card" style={{
       flexShrink: 0,
@@ -500,7 +533,7 @@ const SizeCard = memo(function SizeCard({ size, qty, onQtyChange, preCut }) {
         {size.label}
       </p>
       <p style={{ margin: 0, fontSize: "0.6875rem", color: "#6b7280", textAlign: "center" }}>
-        {size.w.toFixed(2)}" × {size.h.toFixed(2)}"
+        {eff.w.toFixed(2)}" × {eff.h.toFixed(2)}"
       </p>
       <QuantityStepper value={qty} onChange={onQtyChange} compact />
       {active && (
@@ -515,7 +548,7 @@ const SizeCard = memo(function SizeCard({ size, qty, onQtyChange, preCut }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SizeSlider — horizontally scrollable size cards with prev/next arrows
 // ─────────────────────────────────────────────────────────────────────────────
-const SizeSlider = memo(function SizeSlider({ sizes, predefined, onSetPredefined, preCut }) {
+const SizeSlider = memo(function SizeSlider({ sizes, predefined, onSetPredefined, preCut, imgPixels }) {
   const scrollRef       = useRef(null);
   const [arrows, setArrows] = useState({ left: false, right: false });
 
@@ -598,6 +631,7 @@ const SizeSlider = memo(function SizeSlider({ sizes, predefined, onSetPredefined
             qty={toInt(predefined[size.id])}
             onQtyChange={(qty) => onSetPredefined(size.id, qty)}
             preCut={preCut}
+            imgPixels={imgPixels}
           />
         ))}
       </div>
@@ -810,6 +844,7 @@ const PlacementSection = memo(function PlacementSection({
             predefined={pConfig.predefined}
             onSetPredefined={onSetPredefined}
             preCut={preCut}
+            imgPixels={imgPixels}
           />
         </div>
       )}
@@ -965,9 +1000,9 @@ const DesignStep2 = ({
   hidePlacementSelector = false,
 }) => {
   const [state, dispatch] = useReducer(reducer, null, makeInitialState);
-  const pricing = usePricingEngine(state.config, state.selectedPlacements, preCut);
 
-  // Track uploaded image's pixel dimensions for dynamic DPI checks
+  // Track uploaded image's pixel dimensions — feeds aspect-ratio scaling for
+  // SizeCard display, pricing, and dynamic DPI checks.
   const [imgPixels, setImgPixels] = useState({ w: 0, h: 0 });
   useEffect(() => {
     if (!imageUrl) { setImgPixels({ w: 0, h: 0 }); return; }
@@ -976,6 +1011,8 @@ const DesignStep2 = ({
     img.onerror = () => setImgPixels({ w: 0, h: 0 });
     img.src = imageUrl;
   }, [imageUrl]);
+
+  const pricing = usePricingEngine(state.config, state.selectedPlacements, preCut, imgPixels);
 
   // ── Auto-fill custom size dimensions from the uploaded image ────────────────
   const autoFillDims = useCallback(() => {
@@ -1016,7 +1053,11 @@ const DesignStep2 = ({
       if (!p || !pc) return;
       p.sizes.forEach((sz) => {
         const qty = toInt(pc.predefined[sz.id]);
-        if (qty > 0 && sz.w * sz.h > maxArea) { maxArea = sz.w * sz.h; pWidth = sz.w; pHeight = sz.h; }
+        if (qty > 0) {
+          const eff = getEffectiveSize(sz, imgPixels);
+          const area = eff.w * eff.h;
+          if (area > maxArea) { maxArea = area; pWidth = eff.w; pHeight = eff.h; }
+        }
       });
       pc.customSizes.forEach((row) => {
         const w = toNum(row.width), h = toNum(row.height), qty = toInt(row.quantity);

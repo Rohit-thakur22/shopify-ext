@@ -12,7 +12,21 @@ const toInt = (v, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-function buildLineRequests(sizeBreakdown, preCut) {
+// Contain-fit a placement's max bounding box (size.w × size.h) to the
+// uploaded artwork's aspect ratio. Must mirror DesignStep2.getEffectiveSize
+// exactly — the cart line items have to match what the SizeCard displayed.
+function fitSizeToArtwork(size, imgPixels) {
+  const aw = imgPixels?.w || imgPixels?.width || 0;
+  const ah = imgPixels?.h || imgPixels?.height || 0;
+  if (aw <= 0 || ah <= 0) return { w: size.w, h: size.h };
+  const ratio = aw / ah;
+  let w = size.h * ratio;
+  let h = size.h;
+  if (w > size.w) { w = size.w; h = size.w / ratio; }
+  return { w, h };
+}
+
+function buildLineRequests(sizeBreakdown, preCut, imgPixels) {
   if (!sizeBreakdown || typeof sizeBreakdown !== "object") return [];
 
   const requests = [];
@@ -26,8 +40,10 @@ function buildLineRequests(sizeBreakdown, preCut) {
       if (quantity <= 0) continue;
 
       const size = placement.sizes.find((s) => s.id === sizeId);
-      const width = toNum(size?.w);
-      const height = toNum(size?.h);
+      if (!size) continue;
+      const eff = fitSizeToArtwork(size, imgPixels);
+      const width = +eff.w.toFixed(2);
+      const height = +eff.h.toFixed(2);
       if (width <= 0 || height <= 0) continue;
 
       requests.push({
@@ -79,6 +95,7 @@ const AddToCartButton = ({
   preCut,
   quantity = 1,
   sizeBreakdown = {},
+  imgPixels = null,
   disabled = false,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -111,7 +128,7 @@ const AddToCartButton = ({
   }, []);
 
   const isServerUrl = imageUrl && typeof imageUrl === "string" && !imageUrl.startsWith("blob:");
-  const lineRequests = buildLineRequests(sizeBreakdown, preCut);
+  const lineRequests = buildLineRequests(sizeBreakdown, preCut, imgPixels);
   const computedTotalQty = lineRequests.reduce((sum, line) => sum + line.quantity, 0);
   const hasMultiLineSelection = lineRequests.length > 0 && computedTotalQty > 0;
   const isValid     = hasMultiLineSelection || (width > 0 && height > 0);

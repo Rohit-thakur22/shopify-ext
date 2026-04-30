@@ -108,6 +108,10 @@ const ProductCustomizer = ({
   const [quantity, setQuantity] = useState(0);
   const [step2TotalPrice, setStep2TotalPrice] = useState(0);
   const [sizeBreakdown, setSizeBreakdown] = useState({});
+  // Pixel dims of the currently-displayed artwork. Drives aspect-ratio
+  // scaling of predefined print sizes (and the cart line items derived
+  // from them) so a tall logo doesn't get billed as a full box-max print.
+  const [imgPixels, setImgPixels] = useState({ w: 0, h: 0 });
 
   // Image processing state
   const [currentImageBlob, setCurrentImageBlob] = useState(null);
@@ -292,6 +296,16 @@ const ProductCustomizer = ({
     setStep2TotalPrice(tp || 0);
     setSizeBreakdown(sb && typeof sb === "object" ? sb : {});
   }, []);
+
+  // Decode the currently-visible artwork's pixel dims whenever the URL
+  // changes (covers initial upload, BG-removed swaps, and enhance results).
+  useEffect(() => {
+    if (!imageUrl) { setImgPixels({ w: 0, h: 0 }); return; }
+    const img = new Image();
+    img.onload = () => setImgPixels({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => setImgPixels({ w: 0, h: 0 });
+    img.src = imageUrl;
+  }, [imageUrl]);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -1029,6 +1043,7 @@ const ProductCustomizer = ({
                   preCut={preCut}
                   quantity={quantity || 1}
                   sizeBreakdown={sizeBreakdown}
+                  imgPixels={imgPixels}
                   disabled={loadingRemoveBg || loadingEnhance || loadingDesignFromUrl || quantity === 0}
                 />
               </div>
@@ -1055,6 +1070,7 @@ const ProductCustomizer = ({
                       preCut={preCut}
                       quantity={quantity || 1}
                       sizeBreakdown={sizeBreakdown}
+                      imgPixels={imgPixels}
                       disabled={loadingRemoveBg || loadingEnhance || loadingDesignFromUrl || quantity === 0}
                     />
                   </div>,
