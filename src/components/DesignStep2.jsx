@@ -678,7 +678,7 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onUpdateDims,
   );
 
   const numField = (label, field, placeholder) => (
-    <div style={{ flex: 1, minWidth: 0 }}>
+    <div className="hq-csr__cell" style={{ flex: 1, minWidth: 0 }}>
       <p style={{ margin: "0 0 0.25rem", fontSize: "0.6875rem", fontWeight: 600, color: "#6b7280" }}>{label}</p>
       <div className="hq-dim-stepper" style={{ display: "flex", alignItems: "stretch", borderRadius: "0.375rem", overflow: "hidden", border: "1px solid #d1d5db", backgroundColor: "#fff" }}>
         {stepBtn(field, -1, "−")}
@@ -707,18 +707,18 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onUpdateDims,
   );
 
   return (
-    <div style={{
+    <div className="hq-csr" style={{
       display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "0.5rem",
       padding: "0.75rem", backgroundColor: "#f9fafb",
       borderRadius: "0.5rem", border: "1px solid #e5e7eb",
     }}>
       {numField("Width (in)", "width", "e.g. 10")}
       {numField("Height (in)", "height", "e.g. 8")}
-      <div>
+      <div className="hq-csr__cell">
         <p style={{ margin: "0 0 0.25rem", fontSize: "0.6875rem", fontWeight: 600, color: "#6b7280" }}>Qty</p>
         <QuantityStepper value={qty} onChange={(v) => onUpdate("quantity", v)} min={1} compact />
       </div>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.25rem", marginLeft: "auto" }}>
+      <div className="hq-csr__actions" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.25rem", marginLeft: "auto" }}>
         <button type="button" onClick={onRemove} title="Remove" style={{
           width: "1.75rem", height: "1.75rem", borderRadius: "0.375rem",
           border: "1px solid #fca5a5", backgroundColor: "#fff5f5",
@@ -1138,6 +1138,12 @@ const DesignStep2 = ({
           .hq-dim-input { height: 2.75rem; font-size: 1rem; }
           .hq-dim-stepper { height: 2.75rem; }
           .hq-dim-step-btn { width: 2.75rem; font-size: 1.125rem; }
+
+          /* CustomSizeRow: stack each field on its own row so nothing overflows */
+          .hq-csr { flex-direction: column !important; align-items: stretch !important; }
+          .hq-csr > .hq-csr__cell,
+          .hq-csr > .hq-csr__actions { width: 100% !important; flex: none !important; min-width: 0 !important; margin-left: 0 !important; }
+          .hq-csr > .hq-csr__actions { flex-direction: row !important; align-items: center !important; justify-content: space-between !important; }
         }
       `}</style>
     </div>

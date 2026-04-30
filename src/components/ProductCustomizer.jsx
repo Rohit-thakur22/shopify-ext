@@ -298,7 +298,8 @@ const ProductCustomizer = ({
 
   // Handle image upload
   const handleImageUpload = useCallback(
-    async (url, file) => {
+    async (url, file, meta = {}) => {
+      const isPremade = meta?.source === "premade";
       // Revoke previous blob URLs before creating new ones
       if (
         originalBlobUrlRef.current &&
@@ -356,7 +357,7 @@ const ProductCustomizer = ({
           setLoadingRemoveBg(true);
           const form = new FormData();
           form.append("image", file);
-          form.append("type", "1");
+          form.append("type", isPremade ? "3" : "1");
 
           const res = await fetch(REMOVE_BG_ENDPOINT, {
             method: "POST",

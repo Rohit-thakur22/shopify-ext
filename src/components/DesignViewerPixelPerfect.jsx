@@ -205,7 +205,7 @@ function getUvdtfOffsetFactor(index) {
     case 1: return 0.0;    // mug — center
     case 2: return 0.00;   // tumbler — body (below straw)
     case 3: return 0.0;    // laptop — center of lid
-    case 4: return -0.09;  // car back — up a bit toward the window
+    case 4: return -0.2;  // car back — up a bit toward the window
     case 5: return 0.18;   // keychain — lower on the disc
     default: return 0.0;
   }
@@ -222,6 +222,37 @@ function getUvdtfXOffsetFactor(index) {
     case 5: return -0.0;  // keychain
     default: return -0.02;
   }
+}
+
+/**
+ * Format a real-world inch value the way Ninja Transfers does:
+ *   • Round to one decimal place
+ *   • Drop trailing ".0" for whole numbers (11 → "11", not "11.0")
+ *   • Keep one decimal for fractional values (14.78 → "14.8", 3.31 → "3.3")
+ */
+function formatInches(value) {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}` : `${rounded}`;
+}
+
+/**
+ * Compute the contain-fit print size in inches for an uploaded image inside a
+ * given printable area. Mirrors NinjaTransfers' sizing: the image is scaled
+ * so its longest dimension matches the printable max, while preserving the
+ * uploaded image's aspect ratio.
+ *
+ * Returns { w, h } in inches.
+ */
+function fitInchesToArea(imageW, imageH, maxW, maxH) {
+  if (!imageW || !imageH || !maxW || !maxH) return { w: maxW, h: maxH };
+  const imageRatio = imageW / imageH;
+  let finalW = maxW;
+  let finalH = finalW / imageRatio;
+  if (finalH > maxH) {
+    finalH = maxH;
+    finalW = finalH * imageRatio;
+  }
+  return { w: finalW, h: finalH };
 }
 
 /**
@@ -271,21 +302,36 @@ const SingleProductPreview = memo(function SingleProductPreview({
   const garmentHeight = garmentImage ? garmentImage.height * scale : 0;
 
   /**
-   * designScale — fixed per-garment fit. The uploaded design is scaled to fit
-   * inside the garment's reference print area regardless of the customer's
-   * selected real-world dimensions.
+   * designScale — NinjaTransfers-style real-world inch contain fit.
    *
-   * Per client direction: the live preview is intentionally NOT dynamic; the
-   * size badge above each mockup conveys the chosen dimensions, while the
-   * mockup itself stays at a stable reference size for visual consistency.
+   *  1. Compute the image aspect ratio from its natural pixels.
+   *  2. Contain the image inside the product's printable inch area
+   *     (PRINTABLE_AREAS_INCHES) while preserving aspect ratio.
+   *  3. Map those finalW × finalH inches into mockup pixels using the
+   *     pixel footprint (FIXED_DESIGN_AREAS) of the printable area.
+   *  4. The Konva image scale is the smaller of the two pixel-to-image
+   *     ratios so the rendered design never stretches.
    */
   const designScale = useMemo(() => {
     if (!designImage || !garmentImage) return 0;
-    const areas = previewSet === "uvdtf" ? UVDTF_DESIGN_AREAS : FIXED_DESIGN_AREAS;
-    const area  = areas[productIndex] ?? areas[0];
+    const areas     = previewSet === "uvdtf" ? UVDTF_DESIGN_AREAS : FIXED_DESIGN_AREAS;
+    const printable = previewSet === "uvdtf" ? UVDTF_PRINTABLE_AREAS_INCHES : PRINTABLE_AREAS_INCHES;
+    const area = areas[productIndex] ?? areas[0];
+    const ref  = printable[productIndex] ?? printable[0];
+
+    // Step 1 + 2: contain the image inside the printable inch area
+    const fitted = fitInchesToArea(designImage.width, designImage.height, ref.w, ref.h);
+
+    // Step 3: inch → pixel mapping using the per-axis printable footprint
     const allowedWidth  = garmentWidth  * area.maxWidth;
     const allowedHeight = garmentHeight * area.maxHeight;
-    return Math.min(allowedWidth / designImage.width, allowedHeight / designImage.height);
+    const scaleX = allowedWidth  / ref.w;
+    const scaleY = allowedHeight / ref.h;
+    const pixelWidth  = fitted.w * scaleX;
+    const pixelHeight = fitted.h * scaleY;
+
+    // Step 4: final Konva scale — Math.min preserves the image's pixel aspect
+    return Math.min(pixelWidth / designImage.width, pixelHeight / designImage.height);
   }, [designImage, garmentImage, garmentWidth, garmentHeight, productIndex, previewSet]);
 
   const designX = useMemo(() => {
@@ -475,6 +521,26 @@ function DesignViewerPixelPerfect({
 
   const previewConfig = useMemo(() => getPreviewConfig(getPreviewSet()), []);
 
+  // Load the design image once at the outer level — use-image caches by URL,
+  // so the SingleProductPreview instances reuse the same loaded image. We use
+  // the natural pixel dimensions to compute each product's contain-fit size
+  // for the badge label (NinjaTransfers-style).
+  const [designImageOuter] = useImage(imageUrl || "", "anonymous");
+
+  /**
+   * Per-product contain-fit size in inches. Null until the design loads,
+   * at which point each badge switches from the static reference size to
+   * the actual fitted size for that product.
+   */
+  const fittedSizes = useMemo(() => {
+    if (!designImageOuter) return null;
+    const w = designImageOuter.width;
+    const h = designImageOuter.height;
+    return previewConfig.printableInches.map(({ w: maxW, h: maxH }) =>
+      fitInchesToArea(w, h, maxW, maxH),
+    );
+  }, [designImageOuter, previewConfig]);
+
   const products = useMemo(() => {
     return previewConfig.keys.map((key, index) => ({
       key,
@@ -566,7 +632,10 @@ function DesignViewerPixelPerfect({
                 <span style={{ fontSize: "0.75rem", fontWeight: 600, marginTop: "0.5rem", color: hoveredIndex === index ? "#4f46e5" : "#6b7280", transition: "color 0.2s" }}>
                   {previewConfig.labels[index]}
                 </span>
-                {/* Fixed reference size per garment — does not change with user selection */}
+                {/* Size badge: shows the contain-fit size of the uploaded
+                    image for this product (NinjaTransfers-style) once the
+                    image loads. Falls back to the static reference until
+                    then, and when no image has been uploaded. */}
                 <span style={{
                   display: "inline-flex", alignItems: "center", gap: "0.2rem",
                   marginTop: "0.1875rem",
@@ -579,7 +648,9 @@ function DesignViewerPixelPerfect({
                   <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                     <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
                   </svg>
-                  {previewConfig.sizes[index]}
+                  {fittedSizes
+                    ? `${formatInches(fittedSizes[index].w)}" x ${formatInches(fittedSizes[index].h)}"`
+                    : previewConfig.sizes[index]}
                 </span>
               </div>
             </div>

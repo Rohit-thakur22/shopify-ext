@@ -120,6 +120,7 @@ const UploadPanel = ({
   const [bgPos, setBgPos] = useState("center");
   const [progress, setProgress] = useState(0);
   const [dpiWarning, setDpiWarning] = useState(null);
+  const [dpiModalOpen, setDpiModalOpen] = useState(false);
   const [showChoiceModal, setShowChoiceModal] = useState(false);
   const [showPremadeModal, setShowPremadeModal] = useState(false);
   const interactionBlockProps = useDisableInteractions({ enabled: true });
@@ -137,6 +138,7 @@ const UploadPanel = ({
   useEffect(() => {
     if (prevLoadingEnhanceRef.current && !loadingEnhance) {
       setDpiWarning(null);
+      setDpiModalOpen(false);
     }
     prevLoadingEnhanceRef.current = loadingEnhance;
   }, [loadingEnhance]);
@@ -175,6 +177,7 @@ const UploadPanel = ({
     // DPI check only applies to raster images; PDFs are rasterized server-side.
     if (file.type === "application/pdf") {
       setDpiWarning(null);
+      setDpiModalOpen(false);
       return;
     }
 
@@ -184,8 +187,10 @@ const UploadPanel = ({
       (dpi.x < PRINT_DPI_THRESHOLD || dpi.y < PRINT_DPI_THRESHOLD)
     ) {
       setDpiWarning(dpi);
+      setDpiModalOpen(true);
     } else {
       setDpiWarning(null);
+      setDpiModalOpen(false);
     }
   };
 
@@ -204,8 +209,24 @@ const UploadPanel = ({
     fileInputRef.current?.click();
   };
 
-  const handlePremadeSelect = (blobUrl, file) => {
-    onUpload(blobUrl, file);
+  const handlePremadeSelect = async (blobUrl, file) => {
+    onUpload(blobUrl, file, { source: "premade" });
+    if (!file || file.type === "application/pdf") {
+      setDpiWarning(null);
+      setDpiModalOpen(false);
+      return;
+    }
+    const dpi = await readImageDpi(file);
+    if (
+      dpi &&
+      (dpi.x < PRINT_DPI_THRESHOLD || dpi.y < PRINT_DPI_THRESHOLD)
+    ) {
+      setDpiWarning(dpi);
+      setDpiModalOpen(true);
+    } else {
+      setDpiWarning(null);
+      setDpiModalOpen(false);
+    }
   };
 
   const handleDrop = (e) => {
@@ -248,11 +269,11 @@ const UploadPanel = ({
         </p>
       </div>
       <DpiWarningModal
-        dpi={dpiWarning}
-        onClose={() => setDpiWarning(null)}
+        dpi={dpiModalOpen ? dpiWarning : null}
+        onClose={() => setDpiModalOpen(false)}
         onEnhance={onEnhance}
         onUploadNew={() => {
-          setDpiWarning(null);
+          setDpiModalOpen(false);
           handleClick();
         }}
       />
@@ -414,7 +435,7 @@ const UploadPanel = ({
               <span style={{ fontSize: "0.75rem", color: "#92400e", flex: 1 }}>
                 Low resolution ({Math.round(dpiWarning.x)} x {Math.round(dpiWarning.y)} DPI) — may not print clearly.
               </span>
-              {onEnhance && (
+              {/* {onEnhance && (
                 <button
                   type="button"
                   onClick={onEnhance}
@@ -427,13 +448,14 @@ const UploadPanel = ({
                 >
                   Enhance
                 </button>
-              )}
+              )} */}
             </div>
           )}
 
           {/* Action buttons */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
-            {/* Enhance Image */}
+            {/* Enhance Image — only when uploaded image is low resolution */}
+            {dpiWarning && onEnhance && (
             <button
               type="button"
               onClick={onEnhance}
@@ -518,6 +540,7 @@ const UploadPanel = ({
               )}
               <span>{loadingEnhance ? "Enhancing..." : "Enhance"}</span>
             </button>
+            )}
 
             {/* Remove BG Again */}
             {onRemoveBgAgain && (
