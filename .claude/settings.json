@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check src/components/ProductCustomizer.jsx)",
+      "Bash(npx babel *)"
+    ]
+  }
+}

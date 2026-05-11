@@ -62,15 +62,61 @@ const UploadPanel = ({
   const [dpiModalOpen, setDpiModalOpen] = useState(false);
   const [showChoiceModal, setShowChoiceModal] = useState(false);
   const [showPremadeModal, setShowPremadeModal] = useState(false);
+  const [previewAspect, setPreviewAspect] = useState(null);
   const interactionBlockProps = useDisableInteractions({ enabled: true });
 
   // Disable zoom while loading so hover doesn't trigger zoom
   const zoomActive = isHovering && !loadingRemoveBg && !loadingEnhance;
 
+  // Re-render the magnifier on scroll while it's visible, so its viewport
+  // clamp updates even when the user scrolls without moving the cursor.
+  const [scrollTick, setScrollTick] = useState(0);
+  useEffect(() => {
+    if (!zoomActive || typeof window === "undefined") return;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        setScrollTick((t) => t + 1);
+        raf = 0;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("scroll", onScroll, { capture: true });
+    };
+  }, [zoomActive]);
+  void scrollTick; // referenced so the render reads getBoundingClientRect fresh
+
   useEffect(() => {
     if (loadingRemoveBg || loadingEnhance || loadingDesignFromUrl)
       setIsHovering(false);
   }, [loadingRemoveBg, loadingEnhance, loadingDesignFromUrl]);
+
+  // Re-derive preview aspect from imageUrl whenever it changes (covers
+  // enhance/remove-bg results that swap imageUrl without going through
+  // the upload handlers).
+  useEffect(() => {
+    if (!imageUrl) {
+      setPreviewAspect(null);
+      return;
+    }
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+        setPreviewAspect(img.naturalWidth / img.naturalHeight);
+      }
+    };
+    img.src = imageUrl;
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUrl]);
 
   // Clear DPI warning after enhance completes (image quality improved)
   const prevLoadingEnhanceRef = useRef(loadingEnhance);
@@ -117,6 +163,7 @@ const UploadPanel = ({
       onUpload(url, file);
       setDpiWarning(null);
       setDpiModalOpen(false);
+      setPreviewAspect(null);
       return;
     }
 
@@ -124,6 +171,7 @@ const UploadPanel = ({
     // doesn't re-decode the same file to compute inches.
     const size = await readImagePixelSize(file);
     onUpload(url, file, { pixelSize: size });
+    setPreviewAspect(size && size.width > 0 && size.height > 0 ? size.width / size.height : null);
 
     if (size && Math.min(size.width, size.height) < MIN_PRINT_PIXELS) {
       setDpiWarning(size);
@@ -154,11 +202,13 @@ const UploadPanel = ({
       onUpload(blobUrl, file, { source: "premade" });
       setDpiWarning(null);
       setDpiModalOpen(false);
+      setPreviewAspect(null);
       return;
     }
     // Decode once, share dims with ProductCustomizer via meta.
     const size = await readImagePixelSize(file);
     onUpload(blobUrl, file, { source: "premade", pixelSize: size });
+    setPreviewAspect(size && size.width > 0 && size.height > 0 ? size.width / size.height : null);
 
     if (size && Math.min(size.width, size.height) < MIN_PRINT_PIXELS) {
       setDpiWarning(size);
@@ -283,22 +333,30 @@ const UploadPanel = ({
             {zoomActive && typeof document !== "undefined" && containerRef.current && createPortal(
               (() => {
                 const rect = containerRef.current.getBoundingClientRect();
+                // Clamp the magnifier's top to the viewport so it stays
+                // visible while the user scrolls a tall image — otherwise it
+                // would follow the preview pane off-screen.
+                const PANEL_PX = 288; // 18rem
+                const GAP = 8;
+                const viewportH = typeof window !== "undefined" ? window.innerHeight : 800;
+                const top = Math.max(GAP, Math.min(rect.top, viewportH - PANEL_PX - GAP));
                 return (
                   <div
                     className="hidden lg:block"
                     style={{
                       position: "fixed",
-                      top: rect.top,
-                      left: rect.left - 220,
-                      width: "13rem",
-                      height: "13rem",
+                      top,
+                      // 18rem (288px) panel + 12px gap = 300px offset from preview's left edge
+                      left: rect.left - 300,
+                      width: "18rem",
+                      height: "18rem",
                       border: "1px solid #d1d5db",
                       borderRadius: "0.5rem",
                       backgroundColor: "#fff",
                       boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)",
                       zIndex: 99999,
                       pointerEvents: "none",
-                      backgroundImage: `url(${imageUrl}), url('https://shopify-ext.vercel.app/assets/transparent-bg.webp')`,
+                      backgroundImage: `url(${imageUrl}), url('https://shopify-ext.vercel.app/assets/transparent-bg.png')`,
                       backgroundRepeat: "no-repeat, repeat",
                       backgroundSize: `${ZOOM_SCALE * 100}%, auto`,
                       backgroundPosition: `${bgPos}, 0 0`,
@@ -310,22 +368,21 @@ const UploadPanel = ({
               document.body,
             )}
 
-            {/* Main preview */}
+            {/* Main preview — stays at contain on hover; the side magnifier
+                shows the zoomed detail. Single source of zoom avoids the
+                double-zoom effect (in-place + side panel) on hover. */}
             <div
               ref={containerRef}
-              className={`relative w-full aspect-square md:aspect-video border border-gray-200 rounded-lg overflow-hidden ${zoomActive ? "cursor-zoom-in" : "cursor-default"}`}
+              className={`relative w-full border border-gray-200 rounded-lg overflow-hidden ${previewAspect ? "" : "aspect-square md:aspect-video"} ${zoomActive ? "cursor-zoom-in" : "cursor-default"}`}
               style={{
-                backgroundImage: `url(${imageUrl}), url('https://shopify-ext.vercel.app/assets/transparent-bg.webp')`,
+                backgroundImage: `url(${imageUrl}), url('https://shopify-ext.vercel.app/assets/transparent-bg.png')`,
                 backgroundRepeat: "no-repeat, repeat",
-                backgroundSize: zoomActive
-                  ? `${ZOOM_SCALE * 100}%, auto`
-                  : "contain, auto",
-                backgroundPosition: zoomActive
-                  ? `${bgPos}, 0 0`
-                  : "center, 0 0",
-                transition:
-                  "background-size 0.2s ease, background-position 0.2s ease",
-                minHeight: "320px",
+                backgroundSize: "contain, auto",
+                backgroundPosition: "center, 0 0",
+                minHeight: "240px",
+                ...(previewAspect
+                  ? { aspectRatio: String(previewAspect), maxHeight: "480px" }
+                  : { minHeight: "320px" }),
               }}
               onMouseEnter={() =>
                 !loadingRemoveBg && !loadingEnhance && setIsHovering(true)

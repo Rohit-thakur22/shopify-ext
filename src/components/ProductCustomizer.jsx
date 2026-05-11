@@ -704,7 +704,10 @@ const ProductCustomizer = ({
     async (enabled) => {
       setRemoveBgEnabled(enabled);
 
-      // If toggling off, switch to original image and ensure we have a server URL for cart
+      // Toggle OFF: show the original blob in the preview and send the
+      // original server URL (from X-Original-Image-Link) to the cart.
+      // Never fall back to processedServerUrl — toggling OFF must put the
+      // ORIGINAL image in the cart, not the bg-removed one.
       if (!enabled && originalImageUrl && originalImageBlob) {
         currentBlobUrlRef.current = originalImageUrl;
         setImageUrl(originalImageUrl);
@@ -714,8 +717,8 @@ const ProductCustomizer = ({
         if (originalServerUrl) {
           setFinalImageUrl(originalServerUrl);
         } else {
-          // We don't have a server URL for the original (e.g. backend didn't return X-Original-Image-Link).
-          // Call remove-bg once to get the server to store the original and return its link; we only use the original link.
+          // No cached original URL — fetch and read X-Original-Image-Link.
+          setLoadingRemoveBg(true);
           try {
             const form = new FormData();
             form.append("image", originalImageBlob);
@@ -730,11 +733,14 @@ const ProductCustomizer = ({
               setOriginalServerUrl(url);
               setFinalImageUrl(url);
             } else {
+              console.warn("X-Original-Image-Link missing from response.");
               setFinalImageUrl(null);
             }
           } catch (err) {
             console.warn("Could not get server URL for original image:", err);
             setFinalImageUrl(null);
+          } finally {
+            setLoadingRemoveBg(false);
           }
         }
       }
@@ -765,6 +771,8 @@ const ProductCustomizer = ({
           // Get the server URLs from response headers
           const processedLink = res.headers.get("X-Image-Link");
           const originalLink = res.headers.get("X-Original-Image-Link");
+          console.log('originalLink', originalLink);
+          
 
           let processedUrl = null;
           let originalUrl = null;
@@ -773,13 +781,11 @@ const ProductCustomizer = ({
             processedUrl = buildServerUrl(processedLink);
             setProcessedServerUrl(processedUrl);
             setFinalImageUrl(processedUrl); // Use processed URL for cart
-            console.log("Toggle ON - Processed image URL:", processedUrl);
           }
 
           if (originalLink) {
             originalUrl = buildServerUrl(originalLink);
             setOriginalServerUrl(originalUrl);
-            console.log("Toggle ON - Original image URL:", originalUrl);
           }
 
           // Get processed image blob
