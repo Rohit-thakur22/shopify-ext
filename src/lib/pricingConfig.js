@@ -16,13 +16,9 @@ function resolveBaseFee() {
   return 0;
 }
 
-/** Route-aware per-unit minimum price (acts as a floor on small sizes). */
+/** Per-unit minimum price floor — client-mandated $0.50 minimum per transfer. */
 function resolveMinUnitPrice() {
-  if (typeof window === "undefined") return 0;
-  const path = (window.location.pathname || "").toLowerCase();
-  if (path.includes("uv")) return 0;       // UV uses base fee model
-  if (path.includes("dtf")) return 1.52;   // DTF minimum per transfer
-  return 0;
+  return 0.5;
 }
 
 export const PRICE_PER_SQIN = resolvePricePerSqIn();
