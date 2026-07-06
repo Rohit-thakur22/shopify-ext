@@ -540,7 +540,7 @@ const UploadPanel = ({
             )}
 
             {/* Remove BG Again */}
-            {onRemoveBgAgain && (
+            {/* {onRemoveBgAgain && (
               <button
                 type="button"
                 onClick={onRemoveBgAgain}
@@ -670,7 +670,7 @@ const UploadPanel = ({
                   )}
                 </span>
               </button>
-            )}
+            )} */}
           </div>
 
           {/* Secondary actions */}
