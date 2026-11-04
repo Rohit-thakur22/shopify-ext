@@ -25,6 +25,27 @@ export const PRICE_PER_SQIN = resolvePricePerSqIn();
 export const BASE_FEE_PER_UNIT = resolveBaseFee();
 export const MIN_UNIT_PRICE = resolveMinUnitPrice();
 export const PRECUT_FEE = 0.24;
+export const MIN_PRINT_INCH = 1;
+export const MAX_PRINT_INCH = 22.5;
+
+/** Scale a print so both sides stay within [MIN_PRINT_INCH, MAX_PRINT_INCH] without breaking aspect ratio. */
+export function applyMinPrintSize(width, height) {
+  const w = Number(width);
+  const h = Number(height);
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+    return { w: MIN_PRINT_INCH, h: MIN_PRINT_INCH };
+  }
+  const scaleUp = Math.max(1, MIN_PRINT_INCH / w, MIN_PRINT_INCH / h);
+  let nw = w * scaleUp;
+  let nh = h * scaleUp;
+  const scaleDown = Math.min(1, MAX_PRINT_INCH / nw, MAX_PRINT_INCH / nh);
+  nw *= scaleDown;
+  nh *= scaleDown;
+  return {
+    w: Math.round(nw * 100) / 100,
+    h: Math.round(nh * 100) / 100,
+  };
+}
 export const DISCOUNT_TIERS = [
   { minSubtotal: 0, discount: 0, buyLabel: "$0.00+", getLabel: "No discount" },
   { minSubtotal: 49, discount: 0.1, buyLabel: "$49.00+", getLabel: "10% Off" },

@@ -13,23 +13,64 @@ const DesignViewerPixelPerfect = lazy(importDesignViewer);
 const DesignStep2 = lazy(importDesignStep2);
 import useScopedShortcutProtection from "../hooks/useScopedShortcutProtection";
 import useStickyColumn from "../hooks/useStickyColumn";
+import { applyMinPrintSize } from "../lib/pricingConfig";
 
 // API endpoints
-const API_BASE = "https://highquality.allgovjobs.com/backend";
+const API_BASE = "https://highquality-image.agiledigitaledge.dev/backend";
 const REMOVE_BG_ENDPOINT = `${API_BASE}/api/images/remove-bg`;
 const ENHANCE_ENDPOINT = `${API_BASE}/api/images/enhance`;
 
 /** Build a full server URL from a path (avoids double slashes). */
 function buildServerUrl(path) {
   if (!path) return null;
+  const p = String(path).trim();
+  if (!p) return null;
+  if (/^https?:\/\//i.test(p)) return p;
   const base = API_BASE.replace(/\/$/, "");
-  const p = path.startsWith("/") ? path.slice(1) : path;
-  return `${base}/${p}`;
+  const rel = p.startsWith("/") ? p.slice(1) : p;
+  return `${base}/${rel}`;
 }
 
-// Dimension limits (inches): auto-filled from image, clamped to this range
-const DIMENSION_MIN = 0.5;
-const DIMENSION_MAX = 22.5;
+function pickImageUrl(data) {
+  if (!data || typeof data !== "object") return null;
+  return data.processedUrl || data.processed_url || data.imageUrl || data.image_url
+    || data.url || data.link || data.image_link || data.processed || null;
+}
+
+function pickOriginalUrl(data) {
+  if (!data || typeof data !== "object") return null;
+  return data.originalUrl || data.original_url || data.original_link || data.original || null;
+}
+
+async function persistImageToServer(blob, type = "1") {
+  const form = new FormData();
+  form.append("image", blob);
+  form.append("type", String(type));
+  const res = await fetch(REMOVE_BG_ENDPOINT, { method: "POST", body: form });
+  if (!res.ok) {
+    throw new Error("Failed to save design image");
+  }
+
+  const processedLink = res.headers.get("X-Image-Link") || res.headers.get("X-AutoEnhance-Link");
+  const originalLink = res.headers.get("X-Original-Image-Link");
+  let bodyProcessed = null;
+  let bodyOriginal = null;
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    try {
+      const data = await res.clone().json();
+      bodyProcessed = pickImageUrl(data);
+      bodyOriginal = pickOriginalUrl(data);
+    } catch (_) { /* image/octet responses are expected */ }
+  }
+
+  return {
+    processedUrl: buildServerUrl(processedLink) || buildServerUrl(bodyProcessed),
+    originalUrl: buildServerUrl(originalLink) || buildServerUrl(bodyOriginal),
+    blob: contentType.includes("application/json") ? null : await res.blob(),
+  };
+}
+
 const DPI = 300; // pixels per inch for converting image dimensions to inches
 
 /** Normalize hex color param to #rrggbb format. Returns null if invalid. */
@@ -44,7 +85,7 @@ function normalizeHexColor(value) {
 }
 
 /**
- * Load image from URL, get natural dimensions, convert to inches and clamp to [DIMENSION_MIN, DIMENSION_MAX].
+ * Load image from URL, get natural dimensions, convert to inches, and scale to the 1" minimum.
  * @param {string} url - Blob or image URL
  * @returns {Promise<{ widthInches: number, heightInches: number }>}
  */
@@ -52,17 +93,8 @@ function getImageDimensionsInInches(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const wInches = img.naturalWidth / DPI;
-      const hInches = img.naturalHeight / DPI;
-      const widthInches = Math.min(
-        DIMENSION_MAX,
-        Math.max(DIMENSION_MIN, +wInches.toFixed(2)),
-      );
-      const heightInches = Math.min(
-        DIMENSION_MAX,
-        Math.max(DIMENSION_MIN, +hInches.toFixed(2)),
-      );
-      resolve({ widthInches, heightInches });
+      const fitted = applyMinPrintSize(img.naturalWidth / DPI, img.naturalHeight / DPI);
+      resolve({ widthInches: fitted.w, heightInches: fitted.h });
     };
     img.onerror = () =>
       reject(new Error("Failed to load image for dimensions"));
@@ -377,15 +409,14 @@ const ProductCustomizer = ({
       setImageUrl(url);
       setCurrentImageBlob(file);
 
-      // Auto-fill width/height from image dimensions (inches), clamped to [0.5, 22.5].
+      // Auto-fill width/height from image dimensions (inches), scaled to the 1" minimum.
       // If UploadPanel already decoded the image (passed via meta.pixelSize),
       // reuse those pixel dims instead of decoding the same file a second time.
       const px = meta?.pixelSize;
       if (px && px.width > 0 && px.height > 0) {
-        const clamp = (v) =>
-          Math.min(DIMENSION_MAX, Math.max(DIMENSION_MIN, +v.toFixed(2)));
-        setWidth(clamp(px.width / DPI));
-        setHeight(clamp(px.height / DPI));
+        const fitted = applyMinPrintSize(px.width / DPI, px.height / DPI);
+        setWidth(fitted.w);
+        setHeight(fitted.h);
       } else {
         getImageDimensionsInInches(url)
           .then(({ widthInches, heightInches }) => {
@@ -411,6 +442,7 @@ const ProductCustomizer = ({
             body: form,
             signal,
           });
+          if (!res.ok) throw new Error(`Remove background failed (${res.status})`);
 
           // Get the server URLs from response headers
           const processedLink = res.headers.get("X-Image-Link");
@@ -429,6 +461,7 @@ const ProductCustomizer = ({
           if (originalLink) {
             originalUrl = buildServerUrl(originalLink);
             setOriginalServerUrl(originalUrl);
+            if (!processedUrl) setFinalImageUrl(originalUrl);
             console.log("Original image URL:", originalUrl);
           }
 
@@ -826,6 +859,27 @@ const ProductCustomizer = ({
   // This ensures when user toggles OFF Remove Background we still pass the correct server URL for the original.
   const cartImageUrl = finalImageUrl || null;
 
+  const ensureCartImage = useCallback(async () => {
+    if (finalImageUrl && typeof finalImageUrl === "string" && !finalImageUrl.startsWith("blob:")) {
+      return finalImageUrl;
+    }
+    const blob = currentImageBlob || originalImageBlob;
+    if (!blob) {
+      throw new Error("Please upload a design first");
+    }
+    const urls = await persistImageToServer(blob, "1");
+    const resolved = removeBgEnabled
+      ? (urls.processedUrl || urls.originalUrl)
+      : (urls.originalUrl || urls.processedUrl);
+    if (!resolved) {
+      throw new Error("Could not save your design. Please try again.");
+    }
+    if (urls.processedUrl) setProcessedServerUrl(urls.processedUrl);
+    if (urls.originalUrl) setOriginalServerUrl(urls.originalUrl);
+    setFinalImageUrl(resolved);
+    return resolved;
+  }, [finalImageUrl, currentImageBlob, originalImageBlob, removeBgEnabled]);
+
   // ── Step header helper ────────────────────────────────────────────────────────
   const StepHeader = ({ num, title, subtitle, gradient, right }) => (
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.75rem", marginBottom: "1.25rem" }}>
@@ -1050,6 +1104,7 @@ const ProductCustomizer = ({
                   quantity={quantity || 1}
                   sizeBreakdown={sizeBreakdown}
                   imgPixels={imgPixels}
+                  onEnsureCartImage={ensureCartImage}
                   disabled={loadingRemoveBg || loadingEnhance || loadingDesignFromUrl || quantity === 0}
                 />
               </div>
@@ -1077,6 +1132,7 @@ const ProductCustomizer = ({
                       quantity={quantity || 1}
                       sizeBreakdown={sizeBreakdown}
                       imgPixels={imgPixels}
+                      onEnsureCartImage={ensureCartImage}
                       disabled={loadingRemoveBg || loadingEnhance || loadingDesignFromUrl || quantity === 0}
                     />
                   </div>,

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { PLACEMENT_CATALOGUE } from "../lib/pricingConfig";
+import { MIN_PRINT_INCH, PLACEMENT_CATALOGUE } from "../lib/pricingConfig";
 
 const toNum = (v, fallback = 0) => {
   const n = parseFloat(v);
@@ -43,7 +43,7 @@ function buildLineRequests(sizeBreakdown, preCut, imgPixels) {
       const eff = fitSizeToArtwork(size, imgPixels);
       const width = +eff.w.toFixed(2);
       const height = +eff.h.toFixed(2);
-      if (width <= 0 || height <= 0) continue;
+      if (width < MIN_PRINT_INCH || height < MIN_PRINT_INCH) continue;
 
       requests.push({
         placementId,
@@ -65,7 +65,7 @@ function buildLineRequests(sizeBreakdown, preCut, imgPixels) {
       const width = toNum(row?.width);
       const height = toNum(row?.height);
       const quantity = toInt(row?.quantity);
-      if (width < 0.5 || height < 0.5 || quantity <= 0) return;
+      if (width < MIN_PRINT_INCH || height < MIN_PRINT_INCH || quantity <= 0) return;
 
       requests.push({
         placementId,
@@ -96,6 +96,7 @@ const AddToCartButton = ({
   sizeBreakdown = {},
   imgPixels = null,
   disabled = false,
+  onEnsureCartImage = null,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error,     setError]     = useState(null);
@@ -106,8 +107,9 @@ const AddToCartButton = ({
   const lineRequests = buildLineRequests(sizeBreakdown, preCut, imgPixels);
   const computedTotalQty = lineRequests.reduce((sum, line) => sum + line.quantity, 0);
   const hasMultiLineSelection = lineRequests.length > 0 && computedTotalQty > 0;
-  const isValid     = hasMultiLineSelection || (width > 0 && height > 0);
+  const isValid     = hasMultiLineSelection || (width >= MIN_PRINT_INCH && height >= MIN_PRINT_INCH);
   const urlForCart  = isServerUrl ? imageUrl : null;
+  const canResolveImage = Boolean(urlForCart || onEnsureCartImage);
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -176,12 +178,20 @@ const AddToCartButton = ({
   };
 
   const addToCart = async () => {
-    if (!isValid || !isServerUrl || isLoading || disabled) return;
+    if (!isValid || !canResolveImage || isLoading || disabled) return;
     setIsLoading(true);
     setError(null);
     setSuccess(false);
 
     try {
+      let resolvedImageUrl = urlForCart;
+      if (!resolvedImageUrl && onEnsureCartImage) {
+        resolvedImageUrl = await onEnsureCartImage();
+      }
+      if (!resolvedImageUrl || String(resolvedImageUrl).startsWith("blob:")) {
+        throw new Error("Design image is not ready yet. Please wait a moment and try again.");
+      }
+
       const fetchPricingItems = async () => {
         const pricingRes = await fetch(cartUrl, {
           method : "POST",
@@ -193,7 +203,7 @@ const AddToCartButton = ({
             quantity,
             totalQty: hasMultiLineSelection ? computedTotalQty : quantity,
             lines: hasMultiLineSelection ? lineRequests : undefined,
-            customImage: urlForCart || "",
+            customImage: resolvedImageUrl,
             productId: productId || "",
             productTitle: productTitle || "",
           }),
@@ -244,7 +254,7 @@ const AddToCartButton = ({
   };
 
   // ── Button appearance ──────────────────────────────────────────────────────
-  const isDisabled = !isValid || !isServerUrl || isLoading || disabled;
+  const isDisabled = !isValid || !canResolveImage || isLoading || disabled;
 
   const btnBg = success
     ? "#059669"

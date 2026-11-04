@@ -23,9 +23,12 @@ import {
   PRECUT_FEE,
   BASE_FEE_PER_UNIT,
   MIN_UNIT_PRICE,
+  MIN_PRINT_INCH,
+  MAX_PRINT_INCH,
   DISCOUNT_TABLE_ROWS,
   PLACEMENT_CATALOGUE,
   getDiscountTierBySubtotal,
+  applyMinPrintSize,
 } from "../lib/pricingConfig";
 import useDisableInteractions from "../hooks/useDisableInteractions";
 
@@ -61,6 +64,11 @@ function getEffectiveSize(size, imgPixels) {
     h = size.w / ratio;
   }
   return { w, h };
+}
+
+function isPrintableSize(size, imgPixels) {
+  const eff = getEffectiveSize(size, imgPixels);
+  return eff.w >= MIN_PRINT_INCH && eff.h >= MIN_PRINT_INCH;
 }
 
 // ─── State management ─────────────────────────────────────────────────────────
@@ -151,7 +159,7 @@ function usePricingEngine(config, selectedPlacements, preCut, imgPixels) {
       const priceUnit = (area) => toCents(Math.max(MIN_UNIT_PRICE, BASE_FEE_PER_UNIT + area * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0)));
       pData.sizes.forEach((sz) => {
         const qty = toInt(pc.predefined[sz.id]);
-        if (qty > 0) {
+        if (qty > 0 && isPrintableSize(sz, imgPixels)) {
           const eff = getEffectiveSize(sz, imgPixels);
           const u = priceUnit(eff.w * eff.h);
           pQty += qty; pRaw += u * qty;
@@ -159,7 +167,7 @@ function usePricingEngine(config, selectedPlacements, preCut, imgPixels) {
       });
       pc.customSizes.forEach((row) => {
         const w = toNum(row.width), h = toNum(row.height), qty = toInt(row.quantity);
-        if (w >= 0.5 && h >= 0.5 && qty > 0) { const u = priceUnit(w * h); pQty += qty; pRaw += u * qty; }
+        if (w >= MIN_PRINT_INCH && h >= MIN_PRINT_INCH && qty > 0) { const u = priceUnit(w * h); pQty += qty; pRaw += u * qty; }
       });
 
       perPlacement[pid] = { qty: pQty, raw: pRaw };
@@ -549,6 +557,7 @@ const SizeCard = memo(function SizeCard({ size, qty, onQtyChange, preCut, imgPix
 // SizeSlider — horizontally scrollable size cards with prev/next arrows
 // ─────────────────────────────────────────────────────────────────────────────
 const SizeSlider = memo(function SizeSlider({ sizes, predefined, onSetPredefined, preCut, imgPixels }) {
+  const printableSizes = sizes.filter((size) => isPrintableSize(size, imgPixels));
   const scrollRef       = useRef(null);
   const [arrows, setArrows] = useState({ left: false, right: false });
 
@@ -606,6 +615,14 @@ const SizeSlider = memo(function SizeSlider({ sizes, predefined, onSetPredefined
     </button>
   );
 
+  if (printableSizes.length === 0) {
+    return (
+      <p style={{ margin: 0, fontSize: "0.8125rem", color: "#6b7280" }}>
+        No printable sizes for this artwork. Minimum size is {MIN_PRINT_INCH} inch.
+      </p>
+    );
+  }
+
   return (
     <div style={{ position: "relative" }}>
       {arrowBtn(-1, arrows.left)}
@@ -624,7 +641,7 @@ const SizeSlider = memo(function SizeSlider({ sizes, predefined, onSetPredefined
           WebkitOverflowScrolling: "touch",
         }}
       >
-        {sizes.map((size) => (
+        {printableSizes.map((size) => (
           <SizeCard
             key={size.id}
             size={size}
@@ -647,14 +664,13 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onUpdateDims,
   const w   = toNum(row.width);
   const h   = toNum(row.height);
   const qty = toInt(row.quantity);
-  const unit  = w >= 0.5 && h >= 0.5 ? Math.round(Math.max(MIN_UNIT_PRICE, BASE_FEE_PER_UNIT + w * h * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0)) * 100) / 100 : 0;
+  const unit  = w >= MIN_PRINT_INCH && h >= MIN_PRINT_INCH ? Math.round(Math.max(MIN_UNIT_PRICE, BASE_FEE_PER_UNIT + w * h * PRICE_PER_SQIN + (preCut ? PRECUT_FEE : 0)) * 100) / 100 : 0;
   const total = unit * qty;
 
-  const MAX_IN = 22.5;
-  const MIN_IN = 0.5;
+  const MAX_IN = MAX_PRINT_INCH;
+  const MIN_IN = MIN_PRINT_INCH;
   const STEP_IN = 0.5;
 
-  const clamp = (n) => Math.min(MAX_IN, Math.max(MIN_IN, n));
   // Round to 2 decimals to avoid floating-point dust like 1.4000000000000001
   const roundDim = (n) => Math.round(n * 100) / 100;
 
@@ -671,20 +687,25 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onUpdateDims,
    * a single dispatch so width/height never desync.
    */
   const applyDim = (field, value) => {
-    const clamped = clamp(value);
+    let newW;
+    let newH;
     if (aspectRatio && onUpdateDims) {
-      let newW;
-      let newH;
       if (field === "width") {
-        newW = clamped;
-        newH = clamp(clamped / aspectRatio);
+        newW = value;
+        newH = value / aspectRatio;
       } else {
-        newH = clamped;
-        newW = clamp(clamped * aspectRatio);
+        newH = value;
+        newW = value * aspectRatio;
       }
-      onUpdateDims(String(roundDim(newW)), String(roundDim(newH)));
     } else {
-      onUpdate(field, String(roundDim(clamped)));
+      newW = field === "width" ? value : (isFinite(w) && w > 0 ? w : MIN_IN);
+      newH = field === "height" ? value : (isFinite(h) && h > 0 ? h : MIN_IN);
+    }
+    const fitted = applyMinPrintSize(newW, newH);
+    if (aspectRatio && onUpdateDims) {
+      onUpdateDims(String(roundDim(fitted.w)), String(roundDim(fitted.h)));
+    } else {
+      onUpdate(field, String(roundDim(field === "width" ? fitted.w : fitted.h)));
     }
   };
 
@@ -765,7 +786,7 @@ const CustomSizeRow = memo(function CustomSizeRow({ row, onUpdate, onUpdateDims,
       </div>
       {/* Dynamic DPI warning: show when selected size exceeds image resolution at 300 DPI */}
       {(() => {
-        if (!imgPixels || imgPixels.w === 0 || w < 0.5 || h < 0.5) return null;
+        if (!imgPixels || imgPixels.w === 0 || w < MIN_PRINT_INCH || h < MIN_PRINT_INCH) return null;
         const dpiW = imgPixels.w / w;
         const dpiH = imgPixels.h / h;
         const effectiveDpi = Math.min(dpiW, dpiH);
@@ -1014,17 +1035,26 @@ const DesignStep2 = ({
 
   const pricing = usePricingEngine(state.config, state.selectedPlacements, preCut, imgPixels);
 
+  const hasUnavailableSizes = useMemo(() => (
+    state.selectedPlacements.some((pid) => {
+      const placement = PLACEMENT_CATALOGUE.find((p) => p.id === pid);
+      if (!placement || placement.sizes.length === 0) return false;
+      return placement.sizes.some((sz) => !isPrintableSize(sz, imgPixels));
+    })
+  ), [state.selectedPlacements, imgPixels]);
+
   // ── Auto-fill custom size dimensions from the uploaded image ────────────────
   const autoFillDims = useCallback(() => {
     if (!imageUrl) return;
     const img = new window.Image();
     img.onload = () => {
       const DPI = 300; // DTF standard print resolution
+      const fitted = applyMinPrintSize(img.naturalWidth / DPI, img.naturalHeight / DPI);
       dispatch({
         type     : ACTIONS.FILL_CUSTOM_DIMS,
         placement: "custom",
-        width    : (img.naturalWidth  / DPI).toFixed(2),
-        height   : (img.naturalHeight / DPI).toFixed(2),
+        width    : fitted.w.toFixed(2),
+        height   : fitted.h.toFixed(2),
       });
     };
     img.src = imageUrl;
@@ -1053,7 +1083,7 @@ const DesignStep2 = ({
       if (!p || !pc) return;
       p.sizes.forEach((sz) => {
         const qty = toInt(pc.predefined[sz.id]);
-        if (qty > 0) {
+        if (qty > 0 && isPrintableSize(sz, imgPixels)) {
           const eff = getEffectiveSize(sz, imgPixels);
           const area = eff.w * eff.h;
           if (area > maxArea) { maxArea = area; pWidth = eff.w; pHeight = eff.h; }
@@ -1061,7 +1091,9 @@ const DesignStep2 = ({
       });
       pc.customSizes.forEach((row) => {
         const w = toNum(row.width), h = toNum(row.height), qty = toInt(row.quantity);
-        if (qty > 0 && w * h > maxArea) { maxArea = w * h; pWidth = w; pHeight = h; }
+        if (qty > 0 && w >= MIN_PRINT_INCH && h >= MIN_PRINT_INCH && w * h > maxArea) {
+          maxArea = w * h; pWidth = w; pHeight = h;
+        }
       });
     });
     onChange({ width: pWidth, height: pHeight, quantity: pricing.totalQty, sizeBreakdown: state.config, totalPrice: pricing.discountedTotal });
@@ -1079,9 +1111,11 @@ const DesignStep2 = ({
   return (
     <div style={{ fontFamily: "inherit" }}>
 
-      <p style={{ margin: "0 0 0.625rem", fontSize: "0.75rem", color: "#ef4444" }}>
-        *Some sizes are unavailable. Minimum size is 1 inch.
-      </p>
+      {hasUnavailableSizes && (
+        <p style={{ margin: "0 0 0.625rem", fontSize: "0.75rem", color: "#ef4444" }}>
+          *Some sizes are unavailable. Minimum size is {MIN_PRINT_INCH} inch.
+        </p>
+      )}
 
       {/* Placement selector — Fabric.js canvas thumbnails */}
       {!hidePlacementSelector && (
