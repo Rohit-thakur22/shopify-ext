@@ -16,7 +16,7 @@ import useStickyColumn from "../hooks/useStickyColumn";
 import { applyMinPrintSize } from "../lib/pricingConfig";
 
 // API endpoints
-const API_BASE = "https://highquality-image.agiledigitaledge.dev/backend";
+const API_BASE = "https://highquality-image.highqualitytransfers.com/backend";
 const REMOVE_BG_ENDPOINT = `${API_BASE}/api/images/remove-bg`;
 const ENHANCE_ENDPOINT = `${API_BASE}/api/images/enhance`;
 
