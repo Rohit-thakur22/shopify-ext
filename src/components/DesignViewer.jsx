@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { assetUrl } from "../lib/assetBase";
 
 /**
  * DesignViewer - React-controlled Fabric.js canvas component
@@ -23,15 +24,14 @@ const DesignViewer = ({
   assetUrls = {},
 }) => {
   // Source images - use Shopify CDN URLs if available, fallback to local assets
-  const CDN = "https://shopify-ext.vercel.app";
   const sourceImages = useMemo(() => {
     return [
-      `${CDN}/assets/6-cloths/full-front.webp`,
-      `${CDN}/assets/6-cloths/Hoodie_White.png`,
-      `${CDN}/assets/6-cloths/polo-tshirt.png`,
-      `${CDN}/assets/6-cloths/Cap_White.png`,
-      `${CDN}/assets/6-cloths/Apron_White.png`,
-      `${CDN}/assets/6-cloths/Tote_White.png`,
+      assetUrl("6-cloths/full-front.webp"),
+      assetUrl("6-cloths/Hoodie_White.png"),
+      assetUrl("6-cloths/polo-tshirt.png"),
+      assetUrl("6-cloths/Cap_White.png"),
+      assetUrl("6-cloths/Apron_White.png"),
+      assetUrl("6-cloths/Tote_White.png"),
     ];
   }, []);
 

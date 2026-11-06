@@ -6,6 +6,10 @@ import UploadChoiceModal from "./UploadChoiceModal";
 import PremadeDesignsModal from "./PremadeDesignsModal";
 import { Camera, Trash, AlertTriangle } from "lucide-react";
 import useDisableInteractions from "../hooks/useDisableInteractions";
+import { assetUrl } from "../lib/assetBase";
+
+// Checkerboard shown behind transparent artwork in the previews.
+const TRANSPARENT_BG = assetUrl("transparent-bg.png");
 
 // Print-quality threshold: smaller side must be at least this many pixels.
 // At 300 DPI that's ~3.3" — below this, printing on cloth is visibly soft.
@@ -356,7 +360,7 @@ const UploadPanel = ({
                       boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)",
                       zIndex: 99999,
                       pointerEvents: "none",
-                      backgroundImage: `url(${imageUrl}), url('https://shopify-ext.vercel.app/assets/transparent-bg.png')`,
+                      backgroundImage: `url(${imageUrl}), url('${TRANSPARENT_BG}')`,
                       backgroundRepeat: "no-repeat, repeat",
                       backgroundSize: `${ZOOM_SCALE * 100}%, auto`,
                       backgroundPosition: `${bgPos}, 0 0`,
@@ -375,7 +379,7 @@ const UploadPanel = ({
               ref={containerRef}
               className={`relative w-full border border-gray-200 rounded-lg overflow-hidden ${previewAspect ? "" : "aspect-square md:aspect-video"} ${zoomActive ? "cursor-zoom-in" : "cursor-default"}`}
               style={{
-                backgroundImage: `url(${imageUrl}), url('https://shopify-ext.vercel.app/assets/transparent-bg.png')`,
+                backgroundImage: `url(${imageUrl}), url('${TRANSPARENT_BG}')`,
                 backgroundRepeat: "no-repeat, repeat",
                 backgroundSize: "contain, auto",
                 backgroundPosition: "center, 0 0",

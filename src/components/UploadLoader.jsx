@@ -1,28 +1,5 @@
 import React, { useState } from "react";
-
-/**
- * Base URL for app assets. In Shopify the page is the store, so relative paths
- * like /assets/... resolve to the store and 404. Resolve against the bundle's
- * own URL so the GIF loads from the app host (Vercel).
- *
- * Order: import.meta.url (ES modules — set on every module/chunk),
- * then document.currentScript (classic scripts only — null in modules).
- */
-function getAssetBase() {
-  try {
-    if (typeof import.meta !== "undefined" && import.meta.url) {
-      return new URL(import.meta.url).origin;
-    }
-  } catch (_) {}
-  if (typeof document === "undefined") return "";
-  try {
-    const script = document.currentScript;
-    if (script?.src) return new URL(script.src).origin;
-  } catch (_) {}
-  return "";
-}
-
-const ASSET_BASE = getAssetBase();
+import { assetUrl } from "../lib/assetBase";
 
 /**
  * UploadLoader - Processing overlay with animated mascot, progress bar, and Stop.
@@ -34,10 +11,8 @@ const UploadLoader = ({ progress = 0, message, onStop }) => {
   const displayPercent = Math.round(value);
   const [gifError, setGifError] = useState(false);
 
-  // Use absolute URL when embedded (e.g. Shopify) so GIF loads from app host; relative for local/Vercel same-origin
-  const gifPath = ASSET_BASE
-    ? `${ASSET_BASE}/assets/gifs/comic-characters.gif`
-    : "/assets/gifs/comic-characters.gif";
+  // Absolute URL so the GIF loads from the app host when embedded in Shopify
+  const gifPath = assetUrl("gifs/comic-characters.gif");
 
   return (
     <div

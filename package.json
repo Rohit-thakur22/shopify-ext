@@ -8,8 +8,7 @@
     "build": "vite build",
     "build:shopify": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "deploy": "npm run build && vercel --prod"
+    "preview": "vite preview"
   },
   "dependencies": {
     "fabric": "^6.7.1",
@@ -19,8 +18,7 @@
     "react-dom": "^19.1.1",
     "react-image-crop": "^11.0.10",
     "react-konva": "^19.2.3",
-    "use-image": "^1.1.4",
-    "vercel": "^53.1.0"
+    "use-image": "^1.1.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { assetUrl } from "../lib/assetBase";
 
 /**
  * DesignViewerPro - Professional mockup rendering architecture
@@ -67,14 +68,13 @@ const COLOR_SWATCHES = [
 ];
 
 // Default asset URLs (fallback when assetUrls not provided)
-const CDN = "https://shopify-ext.vercel.app";
 const DEFAULT_ASSETS = {
-  tshirt: `${CDN}/assets/6-cloths/full-front.webp`,
-  hoodie: `${CDN}/assets/6-cloths/Hoodie_White.png`,
-  polo: `${CDN}/assets/6-cloths/polo-tshirt.png`,
-  cap: `${CDN}/assets/6-cloths/Cap_White.png`,
-  apron: `${CDN}/assets/6-cloths/Apron_White.png`,
-  tote: `${CDN}/assets/6-cloths/Tote_White.png`,
+  tshirt: assetUrl("6-cloths/full-front.webp"),
+  hoodie: assetUrl("6-cloths/Hoodie_White.png"),
+  polo: assetUrl("6-cloths/polo-tshirt.png"),
+  cap: assetUrl("6-cloths/Cap_White.png"),
+  apron: assetUrl("6-cloths/Apron_White.png"),
+  tote: assetUrl("6-cloths/Tote_White.png"),
 };
 
 /**

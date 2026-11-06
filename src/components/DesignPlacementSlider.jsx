@@ -6,17 +6,17 @@ import React, {
   useState,
 } from "react";
 import { Canvas, Image, filters } from "fabric";
+import { assetUrl } from "../lib/assetBase";
 
 // Shared CDN defaults so the slider uses the same main garment art
 // as the primary 6-cloth viewers.
-const CDN = "https://shopify-ext.vercel.app";
 const DEFAULT_ASSETS = {
-  tshirt: `${CDN}/assets/6-cloths/full-front.webp`,
-  hoodie: `${CDN}/assets/6-cloths/Hoodie_White.webp`,
-  polo: `${CDN}/assets/6-cloths/polo-tshirt.webp`,
-  cap: `${CDN}/assets/6-cloths/Cap_White.webp`,
-  apron: `${CDN}/assets/6-cloths/Apron_White.webp`,
-  tote: `${CDN}/assets/6-cloths/Tote_White.png`,
+  tshirt: assetUrl("6-cloths/full-front.webp"),
+  hoodie: assetUrl("6-cloths/Hoodie_White.webp"),
+  polo: assetUrl("6-cloths/polo-tshirt.webp"),
+  cap: assetUrl("6-cloths/Cap_White.webp"),
+  apron: assetUrl("6-cloths/Apron_White.webp"),
+  tote: assetUrl("6-cloths/Tote_White.png"),
 };
 
 /**

@@ -4,6 +4,7 @@ import useBitmapImage from "../hooks/useBitmapImage";
 import useDisableInteractions from "../hooks/useDisableInteractions";
 import PrintInfoCard from "./PrintInfoCard";
 import { DISCOUNT_TABLE_ROWS } from "../lib/pricingConfig";
+import { assetUrl } from "../lib/assetBase";
 
 /**
  * DesignViewerPixelPerfect - Pixel-perfect mockup rendering with Konva.js
@@ -131,22 +132,21 @@ const COLOR_SWATCHES = [
   "#005bd3",
 ];
 
-const CDN = "https://shopify-ext.vercel.app";
 const CLOTH_ASSETS = {
-  tshirt: `${CDN}/assets/6-cloths/full-front.webp`,
-  hoodie: `${CDN}/assets/6-cloths/Hoodie_White.webp`,
-  polo: `${CDN}/assets/6-cloths/polo-tshirt.webp`,
-  cap: `${CDN}/assets/6-cloths/Cap_White.webp`,
-  apron: `${CDN}/assets/6-cloths/Apron_White.webp`,
-  tote: `${CDN}/assets/6-cloths/Tote_White.png`,
+  tshirt: assetUrl("6-cloths/full-front.webp"),
+  hoodie: assetUrl("6-cloths/Hoodie_White.webp"),
+  polo: assetUrl("6-cloths/polo-tshirt.webp"),
+  cap: assetUrl("6-cloths/Cap_White.webp"),
+  apron: assetUrl("6-cloths/Apron_White.webp"),
+  tote: assetUrl("6-cloths/Tote_White.png"),
 };
 const UVDTF_ASSETS = {
-  bottle: `${CDN}/assets/6-products/bottle.webp`,
-  mug: `${CDN}/assets/6-products/mug.webp`,
-  tumbler: `${CDN}/assets/6-products/tumbler.webp`,
-  laptop: `${CDN}/assets/6-products/laptop.webp`,
-  carBack: `${CDN}/assets/6-products/car-back.webp`,
-  keychain: `${CDN}/assets/6-products/keychain.webp`,
+  bottle: assetUrl("6-products/bottle.webp"),
+  mug: assetUrl("6-products/mug.webp"),
+  tumbler: assetUrl("6-products/tumbler.webp"),
+  laptop: assetUrl("6-products/laptop.webp"),
+  carBack: assetUrl("6-products/car-back.webp"),
+  keychain: assetUrl("6-products/keychain.webp"),
 };
 
 function getPreviewConfig(previewSet) {

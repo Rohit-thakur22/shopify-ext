@@ -31,6 +31,7 @@ import {
   applyMinPrintSize,
 } from "../lib/pricingConfig";
 import useDisableInteractions from "../hooks/useDisableInteractions";
+import { assetUrl } from "../lib/assetBase";
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 let _seq = 0;
@@ -40,13 +41,13 @@ const toNum = (v, fb = 0) => { const n = parseFloat(v); return isFinite(n) ? n :
 const toInt = (v, fb = 0) => { const n = parseInt(v);   return isFinite(n) ? n : fb; };
 
 // ─── Garment image sources (mirrors DesignPlacementSlider) ────────────────────
-const CDN = "https://shopify-ext.vercel.app";
+const FRONT_GARMENT = assetUrl("6-cloths/full-front.webp");
 
 const getGarmentSrc = (view, assetUrls = {}) => ({
-  front: CDN + "/assets/6-cloths/full-front.webp",
+  front: FRONT_GARMENT,
   back : assetUrls.back  || "/assets/preview-cloths/full-back.webp",
   side : assetUrls.side  || "/assets/preview-cloths/sleeve-1.webp",
-}[view] || assetUrls.tshirt || CDN + "/assets/6-cloths/full-front.webp");
+}[view] || assetUrls.tshirt || FRONT_GARMENT);
 
 // Scale a placement's max-bounding-box (size.w × size.h) down to fit the
 // uploaded artwork's aspect ratio. Mirrors the live-preview "contain-fit":
