@@ -177,7 +177,7 @@ function getGarmentUrl(assetUrls, productKey, color, assets) {
   if (colorVariants?.[color]?.[productKey]) {
     return colorVariants[color][productKey];
   }
-  // Always use Vercel CDN — ignore Shopify assetUrls for garments
+  // Always use the app host's assets — ignore Shopify assetUrls for garments
   return assets[productKey];
 }
 

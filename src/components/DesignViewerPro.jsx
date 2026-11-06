@@ -79,8 +79,8 @@ const DEFAULT_ASSETS = {
 
 /**
  * Get the base garment URL for a product at a given color.
- * Always uses Vercel CDN — ignores assetUrls from Shopify.
- * Color variants still supported if they point to Vercel URLs.
+ * Always uses the app host's assets — ignores assetUrls from Shopify.
+ * Color variants are still supported via assetUrls.colorVariants.
  */
 function getGarmentUrl(assetUrls, productKey, color) {
   const colorVariants = assetUrls?.colorVariants;
